@@ -1,0 +1,4 @@
+Alizhan
+Ayaulym
+Dias
+Bekzhan
