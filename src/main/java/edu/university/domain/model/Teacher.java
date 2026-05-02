@@ -3,15 +3,43 @@ package edu.university.domain.model;
 import edu.university.domain.value.TeacherTitle;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 
 public class Teacher extends Employee implements Researcher {
+
+    private static final long serialVersionUID = 1L;
+
     private String department;
-    private final List<Course> taughtCourses = new ArrayList<>();
+    /** Restored after deserialization via {@link Course} instructor lists + DB rebuild. */
+    private transient List<Course> taughtCourses;
     private TeacherTitle title;
     private int hIndex;
     private final List<ResearchPaper> papers = new ArrayList<>();
+
+    private List<Course> taughtCoursesBacking() {
+        if (taughtCourses == null) {
+            taughtCourses = new ArrayList<>();
+        }
+        return taughtCourses;
+    }
+
+    /** Restores reverse link after Course-centric deserialization (called from persistence layer). */
+    public void attachTeachingAssignment(Course course) {
+        internalRegisterCourse(course);
+    }
+
+    /** Called when a {@link Course} assigns this teacher as instructor. */
+    void internalRegisterCourse(Course course) {
+        if (course != null && !taughtCoursesBacking().contains(course)) {
+            taughtCoursesBacking().add(course);
+        }
+    }
+
+    void internalUnregisterCourse(Course course) {
+        taughtCoursesBacking().remove(course);
+    }
 
     public void putMark() {
     }
@@ -63,7 +91,7 @@ public class Teacher extends Employee implements Researcher {
     }
 
     public List<Course> getTaughtCourses() {
-        return taughtCourses;
+        return Collections.unmodifiableList(taughtCoursesBacking());
     }
 
     public TeacherTitle getTitle() {

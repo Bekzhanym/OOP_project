@@ -1,17 +1,25 @@
 package edu.university.domain.model;
 
+import edu.university.domain.exception.NonResearcherParticipantException;
+
+import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
-public class ResearchProject {
+public class ResearchProject implements Serializable {
+
+    private static final long serialVersionUID = 1L;
+
     private String topic;
     private final List<ResearchPaper> publishedPapers = new ArrayList<>();
     private final List<Researcher> participants = new ArrayList<>();
 
     public void addParticipant(User user) {
-        if (user instanceof Researcher researcher) {
-            participants.add(researcher);
+        if (!(user instanceof Researcher researcher)) {
+            throw new NonResearcherParticipantException(user);
         }
+        participants.add(researcher);
     }
 
     public String getTopic() {
@@ -23,10 +31,17 @@ public class ResearchProject {
     }
 
     public List<ResearchPaper> getPublishedPapers() {
-        return publishedPapers;
+        return Collections.unmodifiableList(publishedPapers);
     }
 
     public List<Researcher> getParticipants() {
-        return participants;
+        return Collections.unmodifiableList(participants);
+    }
+
+    /** Adds paper linked to this project (storage helper). */
+    public void addPublishedPaper(ResearchPaper paper) {
+        if (paper != null) {
+            publishedPapers.add(paper);
+        }
     }
 }

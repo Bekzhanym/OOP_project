@@ -5,6 +5,8 @@ import java.util.Comparator;
 import java.util.List;
 
 public class Student extends User implements Researcher {
+
+    private static final long serialVersionUID = 1L;
     private static final int MAX_CREDITS_PER_TERM = 21;
     private static final int MAX_FAILED_ATTEMPTS = 3;
 

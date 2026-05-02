@@ -2,10 +2,14 @@ package edu.university.domain.model;
 
 import edu.university.domain.value.Language;
 
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 
-public abstract class User implements Observer {
+public abstract class User implements Observer, Serializable {
+
+    private static final long serialVersionUID = 1L;
+
     private String id;
     private String firstName;
     private String lastName;
@@ -19,6 +23,11 @@ public abstract class User implements Observer {
     public abstract void logout();
 
     public abstract void changePassword(String newPassword);
+
+    /** Minimal authentication hook for console/API flows (compare stored password). */
+    public boolean authenticate(String passwordAttempt) {
+        return passwordAttempt != null && passwordAttempt.equals(password);
+    }
 
     @Override
     public void update(Notification notification) {

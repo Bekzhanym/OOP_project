@@ -1,8 +1,11 @@
 package edu.university.domain.model;
 
+import java.io.Serializable;
 import java.time.LocalDate;
 
-public class RecommendationLetter {
+public class RecommendationLetter implements Serializable {
+
+    private static final long serialVersionUID = 1L;
     private String text;
     private LocalDate date;
     private Teacher author;

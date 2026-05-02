@@ -1,8 +1,11 @@
 package edu.university.domain.model;
 
+import java.io.Serializable;
 import java.time.LocalDate;
 
-public class Notification {
+public class Notification implements Serializable {
+
+    private static final long serialVersionUID = 1L;
     private String message;
     private LocalDate date;
     private boolean read;

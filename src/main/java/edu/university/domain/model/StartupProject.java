@@ -2,10 +2,13 @@ package edu.university.domain.model;
 
 import edu.university.domain.value.StartupStatus;
 
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 
-public class StartupProject {
+public class StartupProject implements Serializable {
+
+    private static final long serialVersionUID = 1L;
     private String name;
     private String description;
     private final List<Student> team = new ArrayList<>();
