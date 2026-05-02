@@ -1,0 +1,10 @@
+# javac / IDE output
+out/
+target/
+bin/
+
+# macOS
+.DS_Store
+
+# локальное состояние приложения (пересоздаётся при работе)
+data/*.ser
