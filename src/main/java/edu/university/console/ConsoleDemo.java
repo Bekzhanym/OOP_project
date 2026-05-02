@@ -2,7 +2,7 @@ package edu.university.console;
 
 import edu.university.application.factory.UserFactory;
 import edu.university.application.usecase.ResearcherDirectoryUseCase;
-import edu.university.bootstrap.ServiceFactory;
+import edu.university.UniversityApp;
 import edu.university.domain.model.Course;
 import edu.university.domain.model.ResearchPaper;
 import edu.university.domain.model.Student;
@@ -19,15 +19,7 @@ import java.util.List;
 import java.util.Scanner;
 import java.util.stream.Collectors;
 
-/**
- * Console demo (part C): main data is entered from the keyboard.
- *
- * <pre>
- *   mkdir -p target/classes
- *   find src/main/java/edu/university -name "*.java" | sort | xargs javac --release 17 -d target/classes
- *   java -cp target/classes edu.university.console.ConsoleDemo
- * </pre>
- */
+
 public final class ConsoleDemo {
 
     private ConsoleDemo() {
@@ -35,7 +27,7 @@ public final class ConsoleDemo {
 
     public static void main(String[] args) {
         try (Scanner in = new Scanner(System.in)) {
-            UniversityDatabase db = ServiceFactory.database();
+            UniversityDatabase db = UniversityApp.db();
 
             System.out.print("Load saved data from data/university-state.ser? (y/n): ");
             if ("y".equalsIgnoreCase(trim(in.nextLine()))) {
@@ -43,7 +35,7 @@ public final class ConsoleDemo {
                 System.out.println("Loaded.");
             }
 
-            UserFactory factory = ServiceFactory.userFactory();
+            UserFactory factory = UniversityApp.users();
 
             System.out.println("\n--- Teacher (researcher) ---");
             Teacher teacher = (Teacher) factory.createUser(Role.TEACHER);
@@ -108,7 +100,7 @@ public final class ConsoleDemo {
             }
 
             PaperComparator comparator = chooseComparator(in);
-            ResearcherDirectoryUseCase researchers = ServiceFactory.researcherDirectory();
+            ResearcherDirectoryUseCase researchers = UniversityApp.researchers();
             System.out.println("\n--- All researchers papers (sorted) ---");
             researchers.printAllResearchersPapersSorted(comparator);
 
