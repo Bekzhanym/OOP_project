@@ -1,17 +1,57 @@
 package edu.university.domain.model;
 
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.Serializable;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
-public class Course implements Subject {
+public class Course implements Subject, Serializable {
+
+    private static final long serialVersionUID = 1L;
+
     private String courseCode;
     private String courseName;
     private int credits;
-    private final List<Observer> observers = new CopyOnWriteArrayList<>();
+    /** Not persisted — observer subscriptions are rebuilt at runtime if needed. */
+    private transient List<Observer> observers;
+    private final List<Teacher> instructors = new ArrayList<>();
     private Mark templateMark;
     private Lesson lesson;
     private Room room;
+
+    private List<Observer> observersBacking() {
+        if (observers == null) {
+            observers = new CopyOnWriteArrayList<>();
+        }
+        return observers;
+    }
+
+    private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
+        in.defaultReadObject();
+        observers = new CopyOnWriteArrayList<>();
+    }
+
+    /** Multiple instructors per course (diagram / assignment requirement). */
+    public void addInstructor(Teacher teacher) {
+        if (teacher != null && !instructors.contains(teacher)) {
+            instructors.add(teacher);
+            teacher.internalRegisterCourse(this);
+        }
+    }
+
+    public void removeInstructor(Teacher teacher) {
+        if (teacher != null && instructors.remove(teacher)) {
+            teacher.internalUnregisterCourse(this);
+        }
+    }
+
+    public List<Teacher> getInstructors() {
+        return Collections.unmodifiableList(instructors);
+    }
 
     @Override
     public void attach(Observer observer) {
@@ -32,15 +72,15 @@ public class Course implements Subject {
     }
 
     public void subscribe(Observer observer) {
-        observers.add(observer);
+        observersBacking().add(observer);
     }
 
     public void unsubscribe(Observer observer) {
-        observers.remove(observer);
+        observersBacking().remove(observer);
     }
 
     public void notifyObservers(Notification notification) {
-        for (Observer observer : observers) {
+        for (Observer observer : observersBacking()) {
             observer.update(notification);
         }
     }
@@ -75,7 +115,7 @@ public class Course implements Subject {
     }
 
     public List<Observer> getObservers() {
-        return observers;
+        return observersBacking();
     }
 
     public Mark getTemplateMark() {

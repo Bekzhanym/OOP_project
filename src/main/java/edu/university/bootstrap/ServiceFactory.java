@@ -6,9 +6,6 @@ import edu.university.application.usecase.RegisterStudentForCourseUseCase;
 import edu.university.application.usecase.ResearcherDirectoryUseCase;
 import edu.university.infrastructure.persistence.UniversityDatabase;
 
-/**
- * Composition root: wires infrastructure adapters to application use cases.
- */
 public final class ServiceFactory {
     private static final UniversityDatabase DATABASE = UniversityDatabase.getInstance();
 

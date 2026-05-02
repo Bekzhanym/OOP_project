@@ -2,6 +2,8 @@ package edu.university.domain.model;
 
 public class Employee extends User {
 
+    private static final long serialVersionUID = 1L;
+
     private String employeeId;
 
     @Override

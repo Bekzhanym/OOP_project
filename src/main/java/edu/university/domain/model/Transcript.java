@@ -1,10 +1,13 @@
 package edu.university.domain.model;
 
+import java.io.Serializable;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
-public class Transcript {
+public class Transcript implements Serializable {
+
+    private static final long serialVersionUID = 1L;
     private final Map<String, Mark> marksByCourseCode = new HashMap<>();
 
     public void addMark(String courseCode, Mark mark) {

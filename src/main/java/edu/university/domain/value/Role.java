@@ -5,5 +5,7 @@ public enum Role {
     TEACHER,
     EMPLOYEE,
     ADMIN,
-    MANAGER
+    MANAGER,
+    /** Research-only employee (not Teacher / Student). */
+    RESEARCH_STAFF
 }
