@@ -11,7 +11,6 @@ public interface UserRepository {
 
     List<User> findAllUsers();
 
-    /** Login lookup: email treated case-insensitively. */
     default Optional<User> findByEmailIgnoreCase(String email) {
         if (email == null || email.isBlank()) {
             return Optional.empty();

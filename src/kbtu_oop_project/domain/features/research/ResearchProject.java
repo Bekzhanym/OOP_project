@@ -39,7 +39,6 @@ public class ResearchProject implements Serializable {
         return Collections.unmodifiableList(participants);
     }
 
-    /** Adds paper linked to this project (storage helper). */
     public void addPublishedPaper(ResearchPaper paper) {
         if (paper != null) {
             publishedPapers.add(paper);
