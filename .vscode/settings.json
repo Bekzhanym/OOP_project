@@ -1,0 +1,6 @@
+{
+  "java.project.sourcePaths": ["src"],
+  "java.project.outputPath": "out",
+  "java.import.maven.enabled": false,
+  "java.import.gradle.enabled": false
+}
