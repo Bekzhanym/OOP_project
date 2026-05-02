@@ -8,9 +8,6 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 
-/**
- * Fields aligned with typical bibliographic metadata (title, authors, venue, identifiers).
- */
 public class ResearchPaper implements Serializable, Comparable<ResearchPaper> {
 
     private static final long serialVersionUID = 1L;
@@ -38,7 +35,6 @@ public class ResearchPaper implements Serializable, Comparable<ResearchPaper> {
         this.date = date != null ? date : LocalDate.MIN;
     }
 
-    /** Compact ctor for legacy call sites / tests. */
     public ResearchPaper(String title, int citations, int pages, LocalDate date) {
         this(title, List.of(), null, null, null, null, citations, pages,
                 date != null ? date : LocalDate.MIN);

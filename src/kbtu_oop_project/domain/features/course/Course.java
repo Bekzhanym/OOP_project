@@ -38,7 +38,6 @@ public class Course implements Subject, Serializable {
         observers = new CopyOnWriteArrayList<>();
     }
 
-    /** Multiple instructors per course (diagram / assignment requirement). */
     public void addInstructor(Teacher teacher) {
         if (teacher != null && !instructors.contains(teacher)) {
             instructors.add(teacher);
