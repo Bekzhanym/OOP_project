@@ -20,6 +20,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 
 public final class UniversityDatabase implements UserRepository, CourseRepository {
@@ -163,10 +164,27 @@ public final class UniversityDatabase implements UserRepository, CourseRepositor
         return Collections.unmodifiableList(logs);
     }
 
-    /**
-     * Maps stream class names from older saves ({@code edu.university…}) onto current classes
-     * ({@code kbtu_oop_project…}).
-     */
+    public boolean removeUser(User user) {
+        Objects.requireNonNull(user);
+        if (user instanceof Teacher t) {
+            for (Course c : new ArrayList<>(courses)) {
+                if (c.getInstructors().contains(t)) {
+                    c.removeInstructor(t);
+                }
+            }
+        }
+        return users.remove(user);
+    }
+
+    public boolean removeCourseByCode(String rawCode) {
+        if (rawCode == null || rawCode.isBlank()) {
+            return false;
+        }
+        String code = rawCode.trim();
+        return courses.removeIf(c -> code.equalsIgnoreCase(c.getCourseCode()));
+    }
+
+
     private static final class MigratingObjectInputStream extends ObjectInputStream {
 
         private static final String LEGACY_MODEL_PREFIX = "edu.university.domain.model.";
@@ -191,7 +209,6 @@ public final class UniversityDatabase implements UserRepository, CourseRepositor
                 try {
                     return Class.forName(candidate);
                 } catch (ClassNotFoundException ignored) {
-                    // fall through to default resolution
                 }
             }
             return super.resolveClass(desc);
