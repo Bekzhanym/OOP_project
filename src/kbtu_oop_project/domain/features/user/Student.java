@@ -7,6 +7,8 @@ import kbtu_oop_project.domain.features.research.ResearchPaper;
 import kbtu_oop_project.domain.features.research.ResearchProject;
 import kbtu_oop_project.domain.features.research.Researcher;
 
+import java.io.IOException;
+import java.io.ObjectInputStream;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -31,7 +33,22 @@ public class Student extends User implements Researcher {
     private int hIndex;
     private final List<ResearchPaper> papers = new ArrayList<>();
     private final List<ResearchProject> researchProjects = new ArrayList<>();
-    private final Map<String, Integer> teacherRatingsByEmail = new HashMap<>();
+    /** Non-final: older .ser snapshots may deserialize this map as null. */
+    private Map<String, Integer> teacherRatingsByEmail = new HashMap<>();
+
+    private Map<String, Integer> teacherRatingsBacking() {
+        if (teacherRatingsByEmail == null) {
+            teacherRatingsByEmail = new HashMap<>();
+        }
+        return teacherRatingsByEmail;
+    }
+
+    private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
+        in.defaultReadObject();
+        if (teacherRatingsByEmail == null) {
+            teacherRatingsByEmail = new HashMap<>();
+        }
+    }
 
     @Override
     public void login() {
@@ -140,11 +157,11 @@ public class Student extends User implements Researcher {
         if (stars1to5 < 1 || stars1to5 > 5) {
             throw new IllegalArgumentException("Rating must be between 1 and 5 stars.");
         }
-        teacherRatingsByEmail.put(teacher.getEmail().trim().toLowerCase(Locale.ROOT), stars1to5);
+        teacherRatingsBacking().put(teacher.getEmail().trim().toLowerCase(Locale.ROOT), stars1to5);
     }
 
     public Map<String, Integer> getTeacherRatingsSnapshot() {
-        return Collections.unmodifiableMap(new HashMap<>(teacherRatingsByEmail));
+        return Collections.unmodifiableMap(new HashMap<>(teacherRatingsBacking()));
     }
 
     /** Academic identifier used for transcripts and grading (UML {@code studentId}). */
