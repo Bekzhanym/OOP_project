@@ -13,4 +13,8 @@ public interface Researcher {
     void printPapers(Comparator<ResearchPaper> comparator);
 
     void addPaper(ResearchPaper paper);
+
+    List<ResearchProject> getResearchProjects();
+
+    void addResearchProject(ResearchProject project);
 }

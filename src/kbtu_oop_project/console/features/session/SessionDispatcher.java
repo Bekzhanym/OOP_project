@@ -6,12 +6,17 @@ import kbtu_oop_project.console.features.employee.GenericEmployeeConsole;
 import kbtu_oop_project.console.features.student.StudentConsole;
 import kbtu_oop_project.console.features.teacher.TeacherConsole;
 import kbtu_oop_project.console.features.user.UserRoleFormatter;
+import kbtu_oop_project.console.features.manager.ManagerConsole;
+import kbtu_oop_project.domain.features.misc.Log;
 import kbtu_oop_project.domain.features.user.Admin;
+import kbtu_oop_project.domain.features.user.Employee;
+import kbtu_oop_project.domain.features.user.Manager;
 import kbtu_oop_project.domain.features.user.Student;
 import kbtu_oop_project.domain.features.user.Teacher;
 import kbtu_oop_project.domain.features.user.User;
 import kbtu_oop_project.infrastructure.persistence.UniversityDatabase;
 
+import java.time.LocalDate;
 import java.util.Scanner;
 
 public final class SessionDispatcher {
@@ -27,16 +32,40 @@ public final class SessionDispatcher {
                     + " <" + user.getEmail() + ">");
             System.out.println();
 
-            if (user instanceof Admin adminUser) {
-                logout = AdminConsole.adminMenu(adminUser, db, in);
-            } else if (user instanceof Teacher teacher) {
-                logout = TeacherConsole.teacherMenu(teacher, in);
-            } else if (user instanceof Student student) {
-                logout = StudentConsole.studentMenu(student, db, in);
-            } else {
-                logout = GenericEmployeeConsole.menu(in);
+            logout = dispatchSession(user, db, in);
+            if (logout) {
+                db.recordAudit("LOGOUT " + safeEmail(user));
+                Log lg = new Log();
+                lg.setAction("logout");
+                lg.setUserId(user.getId());
+                lg.setTimestamp(LocalDate.now());
+                db.recordStructured(lg);
             }
         }
         ConsoleUi.printlnOk("Вы вышли из аккаунта.");
+    }
+
+    private static String safeEmail(User user) {
+        return user.getEmail() != null ? user.getEmail() : "(no-email)";
+    }
+
+    private static boolean dispatchSession(User user, UniversityDatabase db, Scanner in) {
+        if (user instanceof Admin adminUser) {
+            return AdminConsole.adminMenu(adminUser, db, in);
+        }
+        if (user instanceof Teacher teacher) {
+            return TeacherConsole.teacherMenu(teacher, db, in);
+        }
+        if (user instanceof Student student) {
+            return StudentConsole.studentMenu(student, db, in);
+        }
+        if (user instanceof Manager manager) {
+            return ManagerConsole.managerMenu(manager, db, in);
+        }
+        if (user instanceof Employee employee) {
+            return GenericEmployeeConsole.menu(employee, db, in);
+        }
+        ConsoleUi.printlnErr("Неизвестный тип пользователя.");
+        return true;
     }
 }

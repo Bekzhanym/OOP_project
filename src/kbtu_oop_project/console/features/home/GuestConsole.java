@@ -4,13 +4,21 @@ import kbtu_oop_project.application.factory.UserFactory;
 import kbtu_oop_project.console.common.ConsoleUi;
 import kbtu_oop_project.console.features.user.UserRoleFormatter;
 import kbtu_oop_project.domain.features.course.Course;
+import kbtu_oop_project.domain.features.course.Lesson;
+import kbtu_oop_project.domain.features.misc.Log;
 import kbtu_oop_project.domain.features.user.Admin;
+import kbtu_oop_project.domain.features.user.ResearchStaff;
 import kbtu_oop_project.domain.features.user.Student;
 import kbtu_oop_project.domain.features.user.Teacher;
 import kbtu_oop_project.domain.features.user.User;
+import kbtu_oop_project.domain.value.CourseType;
+import kbtu_oop_project.domain.value.LessonType;
 import kbtu_oop_project.domain.value.Role;
 import kbtu_oop_project.infrastructure.persistence.UniversityDatabase;
 
+import java.time.DayOfWeek;
+import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.Optional;
 import java.util.Scanner;
 
@@ -40,6 +48,7 @@ public final class GuestConsole {
             System.out.println("  1 — Вход (email + пароль)");
             System.out.println("  2 — Регистрация нового пользователя");
             System.out.println("  3 — Быстрое демо (добавить пример преподавателя, студента и курса)");
+            System.out.println("  4 — Новости университета (для всех)");
             System.out.println("  0 — Выход из программы");
             System.out.print("Выбор: ");
             String c = ConsoleUi.trim(in.nextLine());
@@ -62,12 +71,27 @@ public final class GuestConsole {
                 case "3":
                     seedQuickDemo(db, factory);
                     break;
+                case "4":
+                    printUniversityNews(db);
+                    break;
                 case "0":
                     promptSaveIfDesired(db, in);
                     return null;
                 default:
-                    ConsoleUi.printlnErr("Выберите 0–3.");
+                    ConsoleUi.printlnErr("Выберите 0–4.");
             }
+        }
+    }
+
+    private static void printUniversityNews(UniversityDatabase db) {
+        ConsoleUi.header("Новости университета");
+        var lines = db.getNewsLinesView();
+        if (lines.isEmpty()) {
+            System.out.println("(новостей пока нет — менеджер может добавить)");
+            return;
+        }
+        for (String line : lines) {
+            System.out.println(" • " + line);
         }
     }
 
@@ -76,13 +100,30 @@ public final class GuestConsole {
         String email = ConsoleUi.trim(in.nextLine());
         System.out.print("Пароль: ");
         String password = ConsoleUi.trim(in.nextLine());
-        return db.findByEmailIgnoreCase(email).filter(u -> u.authenticate(password));
+        Optional<User> hit = db.findByEmailIgnoreCase(email).filter(u -> u.authenticate(password));
+        if (hit.isPresent()) {
+            db.recordAudit("LOGIN_OK " + email.trim());
+            Log lg = new Log();
+            lg.setAction("login_ok");
+            lg.setUserId(hit.get().getId());
+            lg.setTimestamp(LocalDate.now());
+            db.recordStructured(lg);
+        } else {
+            db.recordAudit("LOGIN_FAIL " + email.trim());
+            Log lg = new Log();
+            lg.setAction("login_fail");
+            lg.setUserId(null);
+            lg.setTimestamp(LocalDate.now());
+            db.recordStructured(lg);
+        }
+        return hit;
     }
 
     public static User registerNewUser(UniversityDatabase db, Scanner in, UserFactory factory) {
         ConsoleUi.header("Регистрация — выберите роль");
-        System.out.println("  1 Student   2 Teacher   3 Employee   4 Admin   5 Manager   6 Research staff");
-        System.out.print("Роль (1–6): ");
+        System.out.println("  1 Student   2 Teacher   3 Employee   4 Admin   5 Manager");
+        System.out.println("  6 Research staff   7 Professor   8 Student (4th year)");
+        System.out.print("Роль (1–8): ");
         Role role = switch (ConsoleUi.trim(in.nextLine())) {
             case "1" -> Role.STUDENT;
             case "2" -> Role.TEACHER;
@@ -90,6 +131,8 @@ public final class GuestConsole {
             case "4" -> Role.ADMIN;
             case "5" -> Role.MANAGER;
             case "6" -> Role.RESEARCH_STAFF;
+            case "7" -> Role.PROFESSOR;
+            case "8" -> Role.STUDENT_4TH_YEAR;
             default -> null;
         };
         if (role == null) {
@@ -108,11 +151,31 @@ public final class GuestConsole {
         user.setLastName(ConsoleUi.promptRequired(in, "Фамилия"));
         user.setPassword(ConsoleUi.promptRequired(in, "Пароль"));
 
+        if (user instanceof Student studentAccount) {
+            System.out.print("Student ID (Enter = совпадает с ID аккаунта): ");
+            String sid = ConsoleUi.trim(in.nextLine());
+            studentAccount.setStudentId(sid.isEmpty() ? user.getId() : sid);
+            if (role == Role.STUDENT_4TH_YEAR) {
+                studentAccount.setYearOfStudy(4);
+            }
+        }
+
         if (user instanceof Teacher teacher) {
             teacher.setHIndex(ConsoleUi.promptInt(in, "H-index", 0, 500));
             teacher.setDepartment(ConsoleUi.promptRequired(in, "Кафедра / отдел"));
         }
+
+        if (user instanceof ResearchStaff rs) {
+            rs.setHIndex(ConsoleUi.promptInt(in, "H-index", 0, 500));
+        }
+
         db.add(user);
+        db.recordAudit("REGISTER " + UserRoleFormatter.describe(user) + " " + email.trim());
+        Log lg = new Log();
+        lg.setAction("register");
+        lg.setUserId(user.getId());
+        lg.setTimestamp(LocalDate.now());
+        db.recordStructured(lg);
         ConsoleUi.printlnOk("Учётная запись создана: " + UserRoleFormatter.describe(user));
         return user;
     }
@@ -134,11 +197,22 @@ public final class GuestConsole {
         student.setLastName("Student");
         student.setEmail("student.demo." + suffix + "@uni.local");
         student.setPassword("student123");
+        student.setStudentId(student.getId());
+
+        Lesson lesson = new Lesson();
+        lesson.setType(LessonType.Lecture);
+        lesson.setDay(DayOfWeek.MONDAY);
+        lesson.setStartTime(LocalTime.of(9, 0));
+        lesson.setEndTime(LocalTime.of(10, 30));
 
         Course course = new Course();
         course.setCourseCode("CS-" + suffix);
         course.setCourseName("Demo course");
         course.setCredits(6);
+        course.setCourseType(CourseType.MAJOR);
+        course.setIntendedMajor("Computer Science");
+        course.setIntendedYearOfStudy(2);
+        course.setLesson(lesson);
         course.addInstructor(teacher);
 
         db.add(teacher);
@@ -148,5 +222,6 @@ public final class GuestConsole {
         System.out.println("  Преподаватель: " + teacher.getEmail() + " / teacher123");
         System.out.println("  Студент:       " + student.getEmail() + " / student123");
         System.out.println("  Курс:          " + course.getCourseCode() + " — " + course.getCourseName());
+        System.out.println("    (Lesson=Lecture, CourseType=MAJOR — как на UML)");
     }
 }

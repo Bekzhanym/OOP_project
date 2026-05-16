@@ -20,7 +20,9 @@ public class ResearchProject implements Serializable {
         if (!(user instanceof Researcher researcher)) {
             throw new NonResearcherParticipantException(user);
         }
-        participants.add(researcher);
+        if (!participants.contains(researcher)) {
+            participants.add(researcher);
+        }
     }
 
     public String getTopic() {

@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Teacher</title>
+</head>
+<body>
+  <p><a href="index.html">← оглавление</a></p>
+  <h1><code>kbtu_oop_project.domain.features.user.Teacher</code></h1>
+  <p><strong>Роль:</strong> сотрудник и исследователь, ведущий курсы.</p>
+  <ul>
+    <li>Связь с курсами (<code>taughtCourses</code>), частично восстанавливается из графа Course→Teacher при загрузке.</li>
+    <li><code>putMark</code> — выставление оценки студенту по курсу с проверками домена.</li>
+    <li><strong><code>manageCourse</code>, <code>exportGradeReport</code>, <code>writeRecommendation</code></strong> — из UML; в консоли — управление курсом и отчёт по оценкам.</li>
+    <li><code>ResearchPaper</code> и <code>ResearchProject</code> как у исследователя.</li>
+    <li>Подтип <code>Professor</code> задаёт учёную степень по умолчанию.</li>
+  </ul>
+</body>
+</html>

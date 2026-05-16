@@ -59,6 +59,22 @@ public final class ConsoleUi {
         }
     }
 
+    public static double promptDouble(Scanner in, String label, double min, double max) {
+        while (true) {
+            System.out.print(label + ": ");
+            String line = trim(in.nextLine());
+            try {
+                double v = Double.parseDouble(line);
+                if (v >= min && v <= max) {
+                    return v;
+                }
+                System.out.println("От " + min + " до " + max);
+            } catch (NumberFormatException e) {
+                System.out.println("Введите число.");
+            }
+        }
+    }
+
     public static LocalDate promptDate(Scanner in, String label) {
         while (true) {
             System.out.print(label + ": ");

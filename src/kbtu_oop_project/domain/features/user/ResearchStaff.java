@@ -1,9 +1,9 @@
 package kbtu_oop_project.domain.features.user;
 
 import kbtu_oop_project.domain.features.research.ResearchPaper;
+import kbtu_oop_project.domain.features.research.ResearchProject;
 import kbtu_oop_project.domain.features.research.Researcher;
 
-import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -15,6 +15,7 @@ public class ResearchStaff extends Employee implements Researcher {
 
     private int hIndex;
     private final List<ResearchPaper> papers = new ArrayList<>();
+    private final List<ResearchProject> researchProjects = new ArrayList<>();
 
     @Override
     public int getHIndex() {
@@ -44,6 +45,19 @@ public class ResearchStaff extends Employee implements Researcher {
     public void addPaper(ResearchPaper paper) {
         if (paper != null) {
             papers.add(paper);
+        }
+    }
+
+    @Override
+    public List<ResearchProject> getResearchProjects() {
+        return researchProjects;
+    }
+
+    @Override
+    public void addResearchProject(ResearchProject project) {
+        if (project != null && !researchProjects.contains(project)) {
+            researchProjects.add(project);
+            project.addParticipant(this);
         }
     }
 }

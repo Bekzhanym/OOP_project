@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Матрица требований (ТЗ + UML)</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 960px; margin: 1rem auto; line-height: 1.45; }
+    table { border-collapse: collapse; width: 100%; margin: 1rem 0; font-size: 0.92rem; }
+    th, td { border: 1px solid #ccc; padding: 0.45rem 0.55rem; vertical-align: top; }
+    th { background: #f4f4f4; text-align: left; }
+    col:first-child { width: 3rem; }
+    .ok { color: #0a7a2f; font-weight: 600; }
+    .part { color: #b35900; font-weight: 600; }
+    .no { color: #a32020; font-weight: 600; }
+    caption { caption-side: top; text-align: left; font-weight: bold; margin-bottom: 0.35rem; }
+  </style>
+</head>
+<body>
+  <p><a href="index.html">← оглавление</a> · <a href="uml-sync.html">Синхронизация со StarUML</a></p>
+
+  <h1>Таблица: описание курса и диаграмма ↔ проект</h1>
+  <p>Условные обозначения: <span class="ok">✓</span> — есть в коде и доступно через консоль/демо там, где нужно;
+    <span class="part">△</span> — есть в домене / заглушка / без полноценного UI;
+    <span class="no">✗</span> — не реализовано. Диаграмму <code>partA (3).mdj</code> нужно обновить в StarUML под финальный код (см. <a href="uml-sync.html">uml-sync.html</a>).</p>
+
+  <table>
+    <caption>Обязательные классы и модели</caption>
+    <thead>
+      <tr><th>№</th><th>Элемент</th><th>Статус</th><th>Комментарий</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>1</td><td>User, Employee, Teacher, Manager, Student, Admin</td><td class="ok">✓</td><td>Иерархия как в коде; в StarUML User — abstract class, не interface.</td></tr>
+      <tr><td>2</td><td>Professor</td><td class="ok">✓</td><td>Подкласс Teacher, фиксированный title.</td></tr>
+      <tr><td>3</td><td>Course, Mark, Lesson</td><td class="ok">✓</td><td>Mark: 2 аттестации + финал; Lesson + LessonType (Lecture/Practice).</td></tr>
+      <tr><td>4</td><td>Researcher, ResearchPaper, ResearchProject</td><td class="ok">✓</td><td>Researcher — интерфейс; кастомное исключение при вступлении не-исследователя.</td></tr>
+      <tr><td>5</td><td>Student4thYear + supervisor + h-index</td><td class="ok">✓</td><td>Роль регистрации + админ назначает руководителя; SupervisorQualificationException.</td></tr>
+      <tr><td>6</td><td>CourseType (MAJOR/MINOR/ELECTIVE)</td><td class="ok">✓</td><td>Поле в Course; менеджер/учитель/демо.</td></tr>
+      <tr><td>7</td><td>ResearchStaff (Employee–Researcher)</td><td class="ok">✓</td><td>Фабрика + регистрация с h-index.</td></tr>
+      <tr><td>8</td><td>Transcript, Notification, Observer/Subject</td><td class="ok">✓</td><td>Course реализует Subject; User — Observer.</td></tr>
+      <tr><td>9</td><td>Вспомогательные: Room, RecommendationLetter, StartupProject, Log…</td><td class="part">△</td><td>Классы есть; расписание/стартапы — без игрового сценария в меню.</td></tr>
+      <tr><td>10</td><td>PendingCourseRegistration, EmployeeMessage (демо-слой)</td><td class="ok">✓</td><td>Добавить на диаграмму при reverse engineering.</td></tr>
+    </tbody>
+  </table>
+
+  <table>
+    <caption>Функциональность по тексту задания</caption>
+    <thead>
+      <tr><th>№</th><th>Требование</th><th>Статус</th><th>Где смотреть</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>1</td><td>Несколько преподавателей на курс</td><td class="ok">✓</td><td>Course.instructors; менеджер назначает.</td></tr>
+      <tr><td>2</td><td>Студент ≤21 кредитов; ограничение пересдач</td><td class="ok">✓</td><td>Student.registerForCourse / failedAttempts.</td></tr>
+      <tr><td>3</td><td>ResearchPaper: поля (название, авторы, журнал, pages, date, doi, citations…)</td><td class="ok">✓</td><td>ResearchPaper + TeacherConsole добавление статьи.</td></tr>
+      <tr><td>4</td><td>printPapers(Comparator); общая печать по университету</td><td class="ok">✓</td><td>TeacherConsole + UniversityDatabase.printAllResearchersPapersSorted.</td></tr>
+      <tr><td>5</td><td>Топ по цитированию (всего и за год)</td><td class="ok">✓</td><td>UniversityDatabase + TeacherConsole.</td></tr>
+      <tr><td>6</td><td>Статистика по оценкам</td><td class="ok">✓</td><td>ManagerConsole; Teacher.exportGradeReport (п.12).</td></tr>
+      <tr><td>7</td><td>≥4 паттерна проектирования</td><td class="ok">✓</td><td>Singleton (БД), Factory (UserFactory), Observer, Strategy (компараторы статей).</td></tr>
+      <tr><td>8</td><td>Comparable / Comparator / equals / hashCode / toString</td><td class="part">△</td><td>ResearchPaper полностью; у остальных — выборочно (уточнить в отчёте).</td></tr>
+      <tr><td>9</td><td>Сериализация состояния</td><td class="ok">✓</td><td>UniversityDatabase.save/load + совместимый хвост.</td></tr>
+      <tr><td>10</td><td>Аутентификация</td><td class="ok">✓</td><td>GuestConsole вход по email/паролю.</td></tr>
+      <tr><td>11</td><td>Перечисления (типы преподавателей, менеджера, языка и т.д.)</td><td class="ok">✓</td><td>TeacherTitle, ManagerType, LessonType, CourseType, Role…</td></tr>
+      <tr><td>12</td><td>Расширенный поиск (regex)</td><td class="ok">✓</td><td>AdminConsole.</td></tr>
+      <tr><td>13</td><td>Бонусы: расписание, посещаемость</td><td class="no">✗</td><td>Не делалось (Room/Lesson есть как модель).</td></tr>
+    </tbody>
+  </table>
+
+  <table>
+    <caption>Чеклист ролей (как в описании)</caption>
+    <thead>
+      <tr><th>Роль</th><th>Пункт</th><th>Статус</th><th>Комментарий</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Admin</td><td>Удаление пользователя, смена пароля</td><td class="ok">✓</td><td>AdminConsole.</td></tr>
+      <tr><td>Admin</td><td>Добавление пользователя из админки</td><td class="part">△</td><td>Только через гостевую регистрацию.</td></tr>
+      <tr><td>Admin</td><td>Журналы audit + structured Log</td><td class="ok">✓</td><td>П. 7 меню.</td></tr>
+      <tr><td>Admin</td><td>Назначение научного руководителя (4 курс)</td><td class="ok">✓</td><td>П. 9 меню.</td></tr>
+      <tr><td>Teacher</td><td>Курсы, студенты, оценки</td><td class="ok">✓</td><td>П. 1–7, 6.</td></tr>
+      <tr><td>Teacher</td><td>manageCourse, exportGradeReport</td><td class="ok">✓</td><td>П. 11–12.</td></tr>
+      <tr><td>Teacher</td><td>Почта и жалобы сотрудникам</td><td class="ok">✓</td><td>П. 8–9.</td></tr>
+      <tr><td>Teacher</td><td>Рекомендательное письмо (объект в БД)</td><td class="part">△</td><td>Текст в консоли; RecommendationLetter как класс есть.</td></tr>
+      <tr><td>Student</td><td>Запись (очередь / сразу), курсы, преподаватели</td><td class="ok">✓</td><td>П. 2–5.</td></tr>
+      <tr><td>Student</td><td>Transcript / viewTranscript</td><td class="ok">✓</td><td>П. 4.</td></tr>
+      <tr><td>Student</td><td>Рейтинг преподавателей</td><td class="ok">✓</td><td>П. 6.</td></tr>
+      <tr><td>Student</td><td>Проекты, новости, запрос рекомендации</td><td class="ok">✓</td><td>П. 7–9.</td></tr>
+      <tr><td>Manager</td><td>Утверждение записи, отчёты GPA/оценки</td><td class="ok">✓</td><td>П. 1–2, 4.</td></tr>
+      <tr><td>Manager</td><td>Новый курс (major, год, CourseType, Lesson)</td><td class="ok">✓</td><td>П. 7.</td></tr>
+      <tr><td>Manager</td><td>Назначение преподавателя</td><td class="ok">✓</td><td>П. 3.</td></tr>
+      <tr><td>Manager</td><td>Тип менеджера ManagerType при регистрации</td><td class="part">△</td><td>Поле в модели; в консоли не заполняется.</td></tr>
+      <tr><td>Manager</td><td>Почта декана, рейтинги преподавателей</td><td class="ok">✓</td><td>П. 5–6.</td></tr>
+      <tr><td>Manager</td><td>Новости</td><td class="ok">✓</td><td>П. 8 + БД.</td></tr>
+      <tr><td>UML</td><td>Актуальный class diagram в StarUML</td><td class="part">△</td><td>См. <a href="uml-sync.html">uml-sync.html</a>.</td></tr>
+    </tbody>
+  </table>
+
+</body>
+</html>

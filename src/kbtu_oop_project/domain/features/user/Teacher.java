@@ -1,14 +1,19 @@
 package kbtu_oop_project.domain.features.user;
 
 import kbtu_oop_project.domain.features.course.Course;
+import kbtu_oop_project.domain.features.course.Lesson;
+import kbtu_oop_project.domain.features.course.Mark;
 import kbtu_oop_project.domain.features.research.ResearchPaper;
+import kbtu_oop_project.domain.features.research.ResearchProject;
 import kbtu_oop_project.domain.features.research.Researcher;
+import kbtu_oop_project.domain.value.CourseType;
 import kbtu_oop_project.domain.value.TeacherTitle;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
 
 public class Teacher extends Employee implements Researcher {
 
@@ -19,6 +24,7 @@ public class Teacher extends Employee implements Researcher {
     private TeacherTitle title;
     private int hIndex;
     private final List<ResearchPaper> papers = new ArrayList<>();
+    private final List<ResearchProject> researchProjects = new ArrayList<>();
 
     private List<Course> taughtCoursesBacking() {
         if (taughtCourses == null) {
@@ -45,16 +51,83 @@ public class Teacher extends Employee implements Researcher {
         taughtCoursesBacking().remove(course);
     }
 
-    public void putMark() {
+    /**
+     * Records an assessment for an enrolled student on a course this teacher instructs.
+     */
+    public void putMark(Student student, Course course, Mark mark) {
+        Objects.requireNonNull(student);
+        Objects.requireNonNull(course);
+        Objects.requireNonNull(mark);
+        if (!getTaughtCourses().contains(course)) {
+            throw new IllegalStateException("Teacher does not instruct this course.");
+        }
+        if (!student.getEnrolledCourses().contains(course)) {
+            throw new IllegalStateException("Student is not enrolled in this course.");
+        }
+        mark.calculateFinalScore();
+        student.getTranscript().addMark(course.getCourseCode(), mark);
     }
 
-    public void manageCourse() {
+    /**
+     * Обновление параметров курса преподавателем (UML {@code manageCourse}).
+     */
+    public void manageCourse(Course course, String newName, Integer credits,
+                             CourseType courseType, Lesson lessonReplacement) {
+        Objects.requireNonNull(course);
+        if (!getTaughtCourses().contains(course)) {
+            throw new IllegalStateException("Teacher does not instruct this course.");
+        }
+        if (newName != null && !newName.isBlank()) {
+            course.setCourseName(newName.trim());
+        }
+        if (credits != null && credits > 0) {
+            course.setCredits(credits);
+        }
+        if (courseType != null) {
+            course.setCourseType(courseType);
+        }
+        if (lessonReplacement != null) {
+            course.setLesson(lessonReplacement);
+        }
+        course.notifyObservers();
     }
 
     public void writeRecommendation(Student student) {
+        Objects.requireNonNull(student);
+        System.out.println("[RecommendationLetter] " + getFirstName() + " " + getLastName()
+                + " recommends student " + student.getStudentId() + " (" + student.getEmail() + ")");
     }
 
+    /** Простая статистика по оценкам на курсе (бонус ТЗ — отчёт преподавателя). */
     public void exportGradeReport(Course course) {
+        Objects.requireNonNull(course);
+        if (!getTaughtCourses().contains(course)) {
+            throw new IllegalStateException("Teacher does not instruct this course.");
+        }
+        System.out.println("=== Отчёт по оценкам: " + course.getCourseCode() + " — " + course.getCourseName() + " ===");
+        List<Double> finals = new ArrayList<>();
+        int passed = 0;
+        for (Student st : course.getEnrolledStudents()) {
+            Mark m = st.getTranscript().getMarkForCourse(course.getCourseCode());
+            if (m == null) {
+                System.out.println(st.getStudentId() + " | нет оценки");
+                continue;
+            }
+            double fs = m.calculateFinalScore();
+            finals.add(fs);
+            if (m.isPassed()) {
+                passed++;
+            }
+            System.out.println(st.getStudentId() + " | итог=" + String.format("%.1f", fs)
+                    + " | зачёт=" + (m.isPassed() ? "да" : "нет"));
+        }
+        if (finals.isEmpty()) {
+            System.out.println("(нет выставленных оценок)");
+            return;
+        }
+        double avg = finals.stream().mapToDouble(Double::doubleValue).average().orElse(0);
+        System.out.println("Средний итог: " + String.format("%.2f", avg));
+        System.out.println("Зачётов: " + passed + " / " + finals.size());
     }
 
     @Override
@@ -84,6 +157,19 @@ public class Teacher extends Employee implements Researcher {
     @Override
     public void addPaper(ResearchPaper paper) {
         papers.add(paper);
+    }
+
+    @Override
+    public List<ResearchProject> getResearchProjects() {
+        return researchProjects;
+    }
+
+    @Override
+    public void addResearchProject(ResearchProject project) {
+        if (project != null && !researchProjects.contains(project)) {
+            researchProjects.add(project);
+            project.addParticipant(this);
+        }
     }
 
     public String getDepartment() {

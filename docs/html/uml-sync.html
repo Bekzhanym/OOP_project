@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Синхронизация ТЗ ↔ код ↔ StarUML</title>
+</head>
+<body>
+  <p><a href="index.html">← оглавление</a></p>
+  <h1>Сводка «тройки»: ТЗ, код и диаграмма</h1>
+  <p>Код приведён к общим требованиям и к элементам вашего <code>partA (3).mdj</code>. Файл <code>.mdj</code> лучше править в <strong>StarUML</strong> (Reverse Engineering / Model Explorer), а не вручную в текстовом редакторе.</p>
+
+  <h2>1. Что уже совпадает в коде с ТЗ и UML</h2>
+  <ul>
+    <li><strong><code>CourseType</code></strong> связан с <code>Course</code> (поле + консоль менеджера/преподавателя + демо).</li>
+    <li><strong><code>Lesson</code> + <code>LessonType</code></strong> (Lecture / Practice) задаются при создании курса менеджером и в гостевом демо.</li>
+    <li><strong><code>Student4thYear</code></strong>: регистрация ролью <code>Role.STUDENT_4TH_YEAR</code>; назначение руководителя через админа (п. 9); исключение при низком h-index.</li>
+    <li><strong><code>Student.viewTranscript()</code></strong> реализован; пункт студента вызывает его из консоли.</li>
+    <li><strong><code>Teacher.manageCourse</code>, <code>exportGradeReport</code>, <code>writeRecommendation</code></strong> — рабочие реализации + пункты <code>11–12</code> в меню преподавателя.</li>
+    <li><strong>Новости</strong>: хранятся в <code>UniversityDatabase</code>, сериализуются, менеджер добавляет; гость и студент читают.</li>
+    <li><strong>Рекомендации</strong>: <code>Student.requestRecommendation(Teacher)</code> доступен из меню студента.</li>
+    <li><strong>Research staff</strong>: при регистрации запрашивается h-index.</li>
+  </ul>
+
+  <h2>2. Что обязательно отразить в StarUML (reverse engineering)</h2>
+  <ol>
+    <li><strong><code>User</code></strong> — сделать <strong>abstract class</strong> (не interface), если диаграмма ещё показывает интерфейс.</li>
+    <li>Явная цепочка: <strong><code>Teacher</code> → <code>Employee</code> → <code>User</code></strong> (и аналогично Admin/Manager).</li>
+    <li>Добавить классы из реализации демо: <strong><code>PendingCourseRegistration</code></strong>, <strong><code>EmployeeMessage</code></strong>, поля и связи с <code>UniversityDatabase</code>.</li>
+    <li><strong><code>UniversityDatabase</code></strong>: актуализировать атрибуты — списки pending-заявок, проектов, почты, структурированных <code>Log</code>, строкового аудита и <strong><code>newsItems</code></strong>.</li>
+    <li>В <strong><code>Course</code></strong> добавить атрибут <code>courseType: CourseType</code>.</li>
+    <li>В перечислении ролей / фабрике указать роль для четвёртого курса (<code>STUDENT_4TH_YEAR</code>) или эквивалент на диаграмме.</li>
+    <li>Удалить с диаграммы заглушки <code>Class1</code>, <code>Interface1</code>, дубликаты <code>Professor</code>, если они не используются.</li>
+    <li>Сохранить экспорт диаграммы в отчёт (PDF) как требует курс.</li>
+  </ol>
+
+  <h2>3. Быстрая проверка перед защитой</h2>
+  <ul>
+    <li>Гость → демо → курс с <code>CourseType</code> и <code>LessonType</code>.</li>
+    <li>Регистрация студента 4 курса → админ назначает супервизора с h-index ≥ 3 → ошибка при h-index &lt; 3.</li>
+    <li>Менеджер → добавить курс → новости → утвердить заявку на запись.</li>
+    <li>Преподаватель → manageCourse → exportGradeReport → поставить оценку.</li>
+    <li>Сохранить <code>data/university-state.ser</code>, перезапуск — новости и pending при необходимости на месте.</li>
+  </ul>
+</body>
+</html>

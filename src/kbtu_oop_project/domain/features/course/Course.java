@@ -2,7 +2,9 @@ package kbtu_oop_project.domain.features.course;
 
 import kbtu_oop_project.domain.features.notification.Notification;
 import kbtu_oop_project.domain.features.notification.Observer;
+import kbtu_oop_project.domain.features.user.Student;
 import kbtu_oop_project.domain.features.user.Teacher;
+import kbtu_oop_project.domain.value.CourseType;
 
 import java.io.IOException;
 import java.io.ObjectInputStream;
@@ -21,10 +23,14 @@ public class Course implements Subject, Serializable {
     private String courseName;
     private int credits;
     private transient List<Observer> observers;
-    private final List<Teacher> instructors = new ArrayList<>();
+    private List<Teacher> instructors = new ArrayList<>();
+    private List<Student> enrolledStudents = new ArrayList<>();
     private Mark templateMark;
     private Lesson lesson;
     private Room room;
+    private String intendedMajor;
+    private int intendedYearOfStudy;
+    private CourseType courseType = CourseType.ELECTIVE;
 
     private List<Observer> observersBacking() {
         if (observers == null) {
@@ -36,6 +42,12 @@ public class Course implements Subject, Serializable {
     private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
         in.defaultReadObject();
         observers = new CopyOnWriteArrayList<>();
+        if (instructors == null) {
+            instructors = new ArrayList<>();
+        }
+        if (enrolledStudents == null) {
+            enrolledStudents = new ArrayList<>();
+        }
     }
 
     public void addInstructor(Teacher teacher) {
@@ -53,6 +65,24 @@ public class Course implements Subject, Serializable {
 
     public List<Teacher> getInstructors() {
         return Collections.unmodifiableList(instructors);
+    }
+
+    public void enrollStudent(Student student) {
+        if (student != null && !enrolledStudents.contains(student)) {
+            enrolledStudents.add(student);
+        }
+    }
+
+    public void removeStudent(Student student) {
+        enrolledStudents.remove(student);
+    }
+
+    public void clearEnrolledStudents() {
+        enrolledStudents.clear();
+    }
+
+    public List<Student> getEnrolledStudents() {
+        return Collections.unmodifiableList(enrolledStudents);
     }
 
     @Override
@@ -89,7 +119,7 @@ public class Course implements Subject, Serializable {
 
     @Override
     public String toString() {
-        return courseCode + " — " + courseName + " (" + credits + " cr)";
+        return courseCode + " — " + courseName + " (" + credits + " cr, " + getCourseType() + ")";
     }
 
     public String getCourseCode() {
@@ -142,5 +172,29 @@ public class Course implements Subject, Serializable {
 
     public void setRoom(Room room) {
         this.room = room;
+    }
+
+    public String getIntendedMajor() {
+        return intendedMajor;
+    }
+
+    public void setIntendedMajor(String intendedMajor) {
+        this.intendedMajor = intendedMajor;
+    }
+
+    public int getIntendedYearOfStudy() {
+        return intendedYearOfStudy;
+    }
+
+    public void setIntendedYearOfStudy(int intendedYearOfStudy) {
+        this.intendedYearOfStudy = intendedYearOfStudy;
+    }
+
+    public CourseType getCourseType() {
+        return courseType != null ? courseType : CourseType.ELECTIVE;
+    }
+
+    public void setCourseType(CourseType courseType) {
+        this.courseType = courseType != null ? courseType : CourseType.ELECTIVE;
     }
 }

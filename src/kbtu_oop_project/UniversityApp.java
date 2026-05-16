@@ -1,14 +1,10 @@
 package kbtu_oop_project;
 
 import kbtu_oop_project.application.factory.UserFactory;
-import kbtu_oop_project.application.usecase.AdvancedSearchUseCase;
-import kbtu_oop_project.application.usecase.RegisterStudentForCourseUseCase;
-import kbtu_oop_project.application.usecase.ResearcherDirectoryUseCase;
 import kbtu_oop_project.infrastructure.persistence.UniversityDatabase;
 
 /**
- * Одна точка входа для консоли и тестов: здесь создаются/use-case’ы и база.
- * Остальной код по-прежнему разнесён по слоям (domain / application / infrastructure).
+ * Одна точка входа для консоли: singleton-база и фабрика пользователей.
  */
 public final class UniversityApp {
 
@@ -23,17 +19,5 @@ public final class UniversityApp {
 
     public static UserFactory users() {
         return new UserFactory();
-    }
-
-    public static AdvancedSearchUseCase search() {
-        return new AdvancedSearchUseCase(DATABASE, DATABASE);
-    }
-
-    public static ResearcherDirectoryUseCase researchers() {
-        return new ResearcherDirectoryUseCase(DATABASE);
-    }
-
-    public static RegisterStudentForCourseUseCase registration() {
-        return new RegisterStudentForCourseUseCase();
     }
 }

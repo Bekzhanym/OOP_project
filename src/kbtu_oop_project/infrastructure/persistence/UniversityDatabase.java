@@ -1,11 +1,16 @@
 package kbtu_oop_project.infrastructure.persistence;
 
 import kbtu_oop_project.domain.features.course.Course;
+import kbtu_oop_project.domain.features.misc.EmployeeMessage;
 import kbtu_oop_project.domain.features.misc.Log;
+import kbtu_oop_project.domain.features.misc.PendingCourseRegistration;
+import kbtu_oop_project.domain.features.research.ResearchPaper;
+import kbtu_oop_project.domain.features.research.ResearchProject;
+import kbtu_oop_project.domain.features.research.Researcher;
+import kbtu_oop_project.domain.features.user.Employee;
+import kbtu_oop_project.domain.features.user.Student;
 import kbtu_oop_project.domain.features.user.Teacher;
 import kbtu_oop_project.domain.features.user.User;
-import kbtu_oop_project.domain.repository.CourseRepository;
-import kbtu_oop_project.domain.repository.UserRepository;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -15,15 +20,20 @@ import java.io.ObjectStreamClass;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.stream.Collectors;
+import java.util.regex.Pattern;
 
-
-public final class UniversityDatabase implements UserRepository, CourseRepository {
+public final class UniversityDatabase {
     private static final Path DEFAULT_STORAGE = Paths.get("data", "university-state.ser");
 
     /** Snapshots saved before packages moved out of {@code edu.university.domain.model}. */
@@ -37,9 +47,13 @@ public final class UniversityDatabase implements UserRepository, CourseRepositor
         String n = "kbtu_oop_project.domain.features.notification.";
         m.put("Admin", u + "Admin");
         m.put("Course", c + "Course");
+        m.put("CourseType", "kbtu_oop_project.domain.value.CourseType");
+        m.put("LessonType", "kbtu_oop_project.domain.value.LessonType");
         m.put("Employee", u + "Employee");
         m.put("Lesson", c + "Lesson");
         m.put("Log", "kbtu_oop_project.domain.features.misc.Log");
+        m.put("PendingCourseRegistration", "kbtu_oop_project.domain.features.misc.PendingCourseRegistration");
+        m.put("EmployeeMessage", "kbtu_oop_project.domain.features.misc.EmployeeMessage");
         m.put("Manager", u + "Manager");
         m.put("Mark", c + "Mark");
         m.put("Notification", n + "Notification");
@@ -67,6 +81,11 @@ public final class UniversityDatabase implements UserRepository, CourseRepositor
     private final List<Course> courses = new ArrayList<>();
     private final List<String> logLines = new ArrayList<>();
     private final List<Log> logs = new ArrayList<>();
+    private final List<PendingCourseRegistration> pendingCourseRegistrations = new ArrayList<>();
+    private final List<ResearchProject> researchProjects = new ArrayList<>();
+    private final List<EmployeeMessage> employeeMessages = new ArrayList<>();
+    /** Новости для менеджера / просмотра (соответствует {@code Manager#manageNews}). */
+    private final List<String> newsItems = new ArrayList<>();
 
     private UniversityDatabase() {
     }
@@ -86,6 +105,10 @@ public final class UniversityDatabase implements UserRepository, CourseRepositor
                 oos.writeObject(new ArrayList<>(courses));
                 oos.writeObject(new ArrayList<>(logLines));
                 oos.writeObject(new ArrayList<>(logs));
+                oos.writeObject(new ArrayList<>(pendingCourseRegistrations));
+                oos.writeObject(new ArrayList<>(researchProjects));
+                oos.writeObject(new ArrayList<>(employeeMessages));
+                oos.writeObject(new ArrayList<>(newsItems));
             }
         } catch (IOException e) {
             throw new IllegalStateException("Failed to save university state", e);
@@ -102,11 +125,17 @@ public final class UniversityDatabase implements UserRepository, CourseRepositor
             courses.clear();
             logLines.clear();
             logs.clear();
+            pendingCourseRegistrations.clear();
+            researchProjects.clear();
+            employeeMessages.clear();
+            newsItems.clear();
             users.addAll((List<User>) ois.readObject());
             courses.addAll((List<Course>) ois.readObject());
             logLines.addAll((List<String>) ois.readObject());
             logs.addAll((List<Log>) ois.readObject());
+            readOptionalSnapshotTail(ois);
             rebuildTeachingAssociations();
+            rebuildEnrollmentAssociations();
         } catch (IOException | ClassNotFoundException e) {
             throw new IllegalStateException("Failed to load university state", e);
         }
@@ -120,24 +149,146 @@ public final class UniversityDatabase implements UserRepository, CourseRepositor
         }
     }
 
-    @Override
+    /** Keeps {@link Course#getEnrolledStudents()} consistent with {@link Student#getEnrolledCourses()} after load. */
+    private void rebuildEnrollmentAssociations() {
+        for (Course course : courses) {
+            course.clearEnrolledStudents();
+        }
+        for (User user : users) {
+            if (user instanceof Student student) {
+                for (Course enrolled : student.getEnrolledCourses()) {
+                    enrolled.enrollStudent(student);
+                }
+            }
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private void readOptionalSnapshotTail(ObjectInputStream ois) {
+        try {
+            pendingCourseRegistrations.addAll((List<PendingCourseRegistration>) ois.readObject());
+        } catch (Exception ignored) {
+            // snapshots written before extended tail existed
+        }
+        try {
+            researchProjects.addAll((List<ResearchProject>) ois.readObject());
+        } catch (Exception ignored) {
+        }
+        try {
+            employeeMessages.addAll((List<EmployeeMessage>) ois.readObject());
+        } catch (Exception ignored) {
+        }
+        try {
+            newsItems.addAll((List<String>) ois.readObject());
+        } catch (Exception ignored) {
+        }
+    }
+
     public void add(User user) {
         users.add(user);
     }
 
-    @Override
     public List<User> findAllUsers() {
         return Collections.unmodifiableList(users);
     }
 
-    @Override
+    public Optional<User> findByEmailIgnoreCase(String email) {
+        if (email == null || email.isBlank()) {
+            return Optional.empty();
+        }
+        String needle = email.trim().toLowerCase(Locale.ROOT);
+        return users.stream()
+                .filter(u -> u.getEmail() != null
+                        && needle.equals(u.getEmail().trim().toLowerCase(Locale.ROOT)))
+                .findFirst();
+    }
+
+    public Optional<Student> findStudentByStudentId(String studentId) {
+        if (studentId == null || studentId.isBlank()) {
+            return Optional.empty();
+        }
+        String needle = studentId.trim();
+        return users.stream()
+                .filter(u -> u instanceof Student)
+                .map(u -> (Student) u)
+                .filter(s -> needle.equalsIgnoreCase(s.getStudentId()))
+                .findFirst();
+    }
+
     public void add(Course course) {
         courses.add(course);
     }
 
-    @Override
     public List<Course> findAllCourses() {
         return Collections.unmodifiableList(courses);
+    }
+
+    public Optional<Course> findCourseByCode(String rawCode) {
+        if (rawCode == null || rawCode.isBlank()) {
+            return Optional.empty();
+        }
+        String code = rawCode.trim();
+        return courses.stream()
+                .filter(c -> c.getCourseCode() != null && code.equalsIgnoreCase(c.getCourseCode()))
+                .findFirst();
+    }
+
+    /**
+     * Advanced search over user emails and course names (bonus / checklist).
+     */
+    public List<Object> advancedSearch(String regex) {
+        Pattern pattern = Pattern.compile(regex);
+        List<Object> results = new ArrayList<>();
+        for (User user : users) {
+            if (user.getEmail() != null && pattern.matcher(user.getEmail()).find()) {
+                results.add(user);
+            }
+        }
+        for (Course course : courses) {
+            if (course.getCourseName() != null && pattern.matcher(course.getCourseName()).find()) {
+                results.add(course);
+            }
+        }
+        return results;
+    }
+
+    public List<Researcher> getAllResearchers() {
+        List<Researcher> researchers = new ArrayList<>();
+        for (User user : users) {
+            if (user instanceof Researcher researcher) {
+                researchers.add(researcher);
+            }
+        }
+        return researchers;
+    }
+
+    private static int totalCitations(Researcher researcher) {
+        return researcher.getPapers().stream().mapToInt(ResearchPaper::getCitations).sum();
+    }
+
+    private static int citationsInYear(Researcher researcher, int year) {
+        return researcher.getPapers().stream()
+                .filter(p -> p.getDate() != null && p.getDate().getYear() == year)
+                .mapToInt(ResearchPaper::getCitations)
+                .sum();
+    }
+
+    public Optional<Researcher> findTopResearcherByTotalCitations() {
+        return getAllResearchers().stream()
+                .max(Comparator.comparingInt(UniversityDatabase::totalCitations));
+    }
+
+    public Optional<Researcher> findTopResearcherByCitationsInYear(int year) {
+        return getAllResearchers().stream()
+                .max(Comparator.comparingInt(r -> citationsInYear(r, year)));
+    }
+
+    public void printAllResearchersPapersSorted(Comparator<ResearchPaper> comparator) {
+        for (Researcher researcher : getAllResearchers()) {
+            System.out.println("=== Papers (" + researcher.getClass().getSimpleName()
+                    + ", h-index=" + researcher.getHIndex() + ") ===");
+            researcher.printPapers(comparator);
+        }
     }
 
     public void addUser(User user) {
@@ -164,8 +315,172 @@ public final class UniversityDatabase implements UserRepository, CourseRepositor
         return Collections.unmodifiableList(logs);
     }
 
+    public void recordAudit(String message) {
+        logLines.add(LocalDate.now() + " | " + message);
+    }
+
+    public void recordStructured(Log entry) {
+        if (entry.getTimestamp() == null) {
+            entry.setTimestamp(LocalDate.now());
+        }
+        logs.add(entry);
+    }
+
+    public List<String> getNewsLinesView() {
+        return Collections.unmodifiableList(new ArrayList<>(newsItems));
+    }
+
+    public void addUniversityNews(String headline) {
+        if (headline == null || headline.isBlank()) {
+            throw new IllegalArgumentException("News text required.");
+        }
+        newsItems.add(LocalDate.now() + " | " + headline.trim());
+        recordAudit("NEWS " + headline.trim());
+    }
+
+    private boolean emailsMatchIgnoreCase(String a, String b) {
+        return a != null && b != null && a.trim().equalsIgnoreCase(b.trim());
+    }
+
+    public Optional<Student> findStudentByEmailIgnoreCase(String email) {
+        return findByEmailIgnoreCase(email).filter(u -> u instanceof Student).map(u -> (Student) u);
+    }
+
+    public List<PendingCourseRegistration> getPendingCourseRegistrationsView() {
+        return Collections.unmodifiableList(new ArrayList<>(pendingCourseRegistrations));
+    }
+
+    public void submitCourseRegistrationRequest(Student student, Course course) {
+        Objects.requireNonNull(student);
+        Objects.requireNonNull(course);
+        String email = student.getEmail();
+        if (email == null || email.isBlank()) {
+            throw new IllegalStateException("Student must have email.");
+        }
+        String code = course.getCourseCode();
+        if (code == null || code.isBlank()) {
+            throw new IllegalArgumentException("Course code required.");
+        }
+        if (student.getEnrolledCourses().contains(course)) {
+            throw new IllegalStateException("Already enrolled.");
+        }
+        if (student.getTotalCredits() + course.getCredits() > 21) {
+            throw new IllegalStateException("Would exceed max credits (21).");
+        }
+        boolean dupPending = pendingCourseRegistrations.stream().anyMatch(p ->
+                emailsMatchIgnoreCase(p.getStudentEmail(), email)
+                        && emailsMatchIgnoreCase(p.getCourseCode(), code));
+        if (dupPending) {
+            throw new IllegalStateException("Request already pending.");
+        }
+        pendingCourseRegistrations.add(new PendingCourseRegistration(email.trim(), code.trim(),
+                System.currentTimeMillis()));
+        recordAudit("PENDING_REG " + email.trim() + " → " + code.trim());
+    }
+
+    private Optional<PendingCourseRegistration> removePendingRegistration(String studentEmail, String courseCode) {
+        Optional<PendingCourseRegistration> match = pendingCourseRegistrations.stream()
+                .filter(p -> emailsMatchIgnoreCase(p.getStudentEmail(), studentEmail)
+                        && emailsMatchIgnoreCase(p.getCourseCode(), courseCode))
+                .findFirst();
+        match.ifPresent(pendingCourseRegistrations::remove);
+        return match;
+    }
+
+    public boolean approvePendingCourseRegistration(String studentEmail, String courseCode) {
+        Optional<PendingCourseRegistration> pend = removePendingRegistration(studentEmail, courseCode);
+        if (pend.isEmpty()) {
+            return false;
+        }
+        Optional<Student> st = findStudentByEmailIgnoreCase(studentEmail);
+        Optional<Course> co = findCourseByCode(courseCode);
+        if (st.isEmpty() || co.isEmpty()) {
+            pendingCourseRegistrations.add(pend.get());
+            return false;
+        }
+        try {
+            st.get().registerForCourse(co.get());
+            recordAudit("APPROVE_REG " + studentEmail + " → " + courseCode);
+            return true;
+        } catch (IllegalStateException | IllegalArgumentException ex) {
+            pendingCourseRegistrations.add(pend.get());
+            return false;
+        }
+    }
+
+    public boolean rejectPendingCourseRegistration(String studentEmail, String courseCode) {
+        boolean removed = removePendingRegistration(studentEmail, courseCode).isPresent();
+        if (removed) {
+            recordAudit("REJECT_REG " + studentEmail + " → " + courseCode);
+        }
+        return removed;
+    }
+
+    public List<ResearchProject> getResearchProjectsUnmodifiable() {
+        return Collections.unmodifiableList(researchProjects);
+    }
+
+    public void registerGlobalResearchProject(ResearchProject project) {
+        if (project != null && !researchProjects.contains(project)) {
+            researchProjects.add(project);
+        }
+    }
+
+    public Optional<ResearchProject> findResearchProjectByTopicSubstring(String needle) {
+        if (needle == null || needle.isBlank()) {
+            return Optional.empty();
+        }
+        String n = needle.trim().toLowerCase(Locale.ROOT);
+        return researchProjects.stream()
+                .filter(p -> p.getTopic() != null && p.getTopic().toLowerCase(Locale.ROOT).contains(n))
+                .findFirst();
+    }
+
+    public List<EmployeeMessage> messagesForRecipientEmailIgnoreCase(String email) {
+        if (email == null || email.isBlank()) {
+            return List.of();
+        }
+        String needle = email.trim().toLowerCase(Locale.ROOT);
+        List<EmployeeMessage> copy = employeeMessages.stream()
+                .filter(m -> m.getToEmail() != null
+                        && needle.equals(m.getToEmail().trim().toLowerCase(Locale.ROOT)))
+                .collect(Collectors.toList());
+        return Collections.unmodifiableList(copy);
+    }
+
+    public List<EmployeeMessage> messagesRequiringDeanSignature() {
+        List<EmployeeMessage> copy = employeeMessages.stream()
+                .filter(EmployeeMessage::isRequiresDeanSignature)
+                .collect(Collectors.toList());
+        return Collections.unmodifiableList(copy);
+    }
+
+    public void postEmployeeMessage(User fromUser, String toEmail, String kind, String body,
+                                    boolean requiresDeanSignature) {
+        Objects.requireNonNull(fromUser);
+        if (!(fromUser instanceof Employee)) {
+            throw new IllegalArgumentException("Only employees may send internal mail.");
+        }
+        if (toEmail == null || toEmail.isBlank()) {
+            throw new IllegalArgumentException("Recipient email required.");
+        }
+        EmployeeMessage msg = new EmployeeMessage(
+                fromUser.getId(),
+                fromUser.getEmail(),
+                toEmail.trim(),
+                kind,
+                body != null ? body : "",
+                requiresDeanSignature,
+                System.currentTimeMillis());
+        employeeMessages.add(msg);
+        recordAudit("MAIL_" + kind + " " + fromUser.getEmail() + "→" + toEmail.trim());
+    }
+
     public boolean removeUser(User user) {
         Objects.requireNonNull(user);
+        if (user instanceof Student st && st.getEmail() != null) {
+            pendingCourseRegistrations.removeIf(p -> emailsMatchIgnoreCase(p.getStudentEmail(), st.getEmail()));
+        }
         if (user instanceof Teacher t) {
             for (Course c : new ArrayList<>(courses)) {
                 if (c.getInstructors().contains(t)) {
@@ -177,13 +492,25 @@ public final class UniversityDatabase implements UserRepository, CourseRepositor
     }
 
     public boolean removeCourseByCode(String rawCode) {
-        if (rawCode == null || rawCode.isBlank()) {
+        Optional<Course> opt = findCourseByCode(rawCode);
+        if (opt.isEmpty()) {
             return false;
         }
-        String code = rawCode.trim();
-        return courses.removeIf(c -> code.equalsIgnoreCase(c.getCourseCode()));
+        Course victim = opt.get();
+        pendingCourseRegistrations.removeIf(p -> emailsMatchIgnoreCase(p.getCourseCode(), victim.getCourseCode()));
+        for (Teacher t : new ArrayList<>(victim.getInstructors())) {
+            victim.removeInstructor(t);
+        }
+        for (User u : users) {
+            if (u instanceof Student s) {
+                if (s.getEnrolledCourses().remove(victim)) {
+                    s.setTotalCredits(Math.max(0, s.getTotalCredits() - victim.getCredits()));
+                }
+            }
+        }
+        victim.clearEnrolledStudents();
+        return courses.remove(victim);
     }
-
 
     private static final class MigratingObjectInputStream extends ObjectInputStream {
 
