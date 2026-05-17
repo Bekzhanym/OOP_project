@@ -1,6 +1,6 @@
 package kbtu_oop_project.domain.exception;
 
-import kbtu_oop_project.domain.features.user.User; 
+import kbtu_oop_project.domain.features.user.User;
 
 public class SupervisorQualificationException extends RuntimeException {
 
@@ -12,11 +12,19 @@ public class SupervisorQualificationException extends RuntimeException {
     }
 
     public static SupervisorQualificationException belowMinimum(User supervisor, int actualHIndex) {
+        if (supervisor == null) {
+            return new SupervisorQualificationException(String.format(
+                    "Ошибка назначения руководителя: Объект руководителя не инициализирован (null). " +
+                    "Требуемый минимальный h-index >= %d", MIN_SUPERVISOR_H_INDEX));
+        }
+
         return new SupervisorQualificationException(String.format(
-                "Cannot assign supervisor %s %s (ID: %s). 4th-year research supervisor must have h-index >= %d (given: %d)",
+                "Отказ в назначении руководителя: %s %s (ID: %s, Роль: %s). " +
+                "Научный руководитель дипломных проектов (4 курс) должен иметь h-index >= %d. (Фактический индекс: %d)",
                 supervisor.getFirstName(),
                 supervisor.getLastName(),
                 supervisor.getId(),
+                supervisor.getClass().getSimpleName(), 
                 MIN_SUPERVISOR_H_INDEX,
                 actualHIndex));
     }

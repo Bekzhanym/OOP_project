@@ -1,9 +1,7 @@
 package kbtu_oop_project.domain.features.user;
 
 import kbtu_oop_project.domain.features.misc.Log;
-
 import java.util.List;
-import java.util.Scanner;
 
 public class Admin extends Employee {
 
@@ -19,49 +17,55 @@ public class Admin extends Employee {
 
     @Override
     public void login() {
-        System.out.println("Администратор " + getEmail() + " вошел в панель управления.");
+        System.out.println("[SECURITY] Администратор " + getEmail() + " успешно авторизован в панели управления.");
     }
 
     public void seeLogFiles(List<Log> systemLogs) {
-        System.out.println("\n======= СИСТЕМНЫЕ ЖУРНАЛЫ (ЛОГИ) =======");
+        System.out.println("\n======= СИСТЕМНЫЕ ЖУРНАЛЫ (ЛОГИ AUDIT) =======");
         if (systemLogs == null || systemLogs.isEmpty()) {
-            System.out.println("История логов пуста.");
+            System.out.println("История системных логов пуста.");
             return;
         }
-
-        for (Log log : systemLogs) {
-            System.out.println(log);
-        }
-        System.out.println("========================================");
+        
+        systemLogs.forEach(System.out::println);
+        System.out.println("=================================================");
     }
 
-    public void manageUsers(List<User> allUsers, Scanner scanner) {
-        System.out.println("\n--- Управление пользователями ---");
-        System.out.println("1. Посмотреть всех пользователей");
-        System.out.println("2. Удалить пользователя (Drop)");
-        System.out.println("0. Назад");
-        System.out.print("Выберите действие: ");
-        
-        int choice = scanner.nextInt();
-        scanner.nextLine(); 
-
-        switch (choice) {
-            case 1 -> {
-                System.out.println("\nСписок зарегистрированных в системе:");
-                allUsers.forEach(System.out::println);
-            }
-            case 2 -> {
-                System.out.print("Введите ID пользователя для удаления: ");
-                String idToDrop = scanner.nextLine();
-                
-                boolean removed = allUsers.removeIf(user -> user.getId().equals(idToDrop));
-                if (removed) {
-                    System.out.println("Пользователь с ID " + idToDrop + " успешно удален.");
-                } else {
-                    System.out.println("Пользователь с таким ID не найден.");
-                }
-            }
-            default -> System.out.println("Возврат в главное меню.");
+    public boolean removeUserById(List<User> allUsers, String idToDrop, List<Log> systemLogs) {
+        if (idToDrop == null || idToDrop.isBlank() || allUsers == null) {
+            return false;
         }
+        
+        String targetId = idToDrop.trim();
+
+        if (targetId.equals(this.getId())) {
+            System.out.println("❌ Ошибка безопасности: Вы не можете удалить собственную учетную запись администратора!");
+            return false;
+        }
+
+        User userToDelete = allUsers.stream()
+                .filter(u -> u.getId().equals(targetId))
+                .findFirst()
+                .orElse(null);
+
+        if (userToDelete == null) {
+            System.out.println("⚠️ Пользователь с ID '" + targetId + "' не найден в системе КБТУ.");
+            return false;
+        }
+
+        boolean removed = allUsers.removeIf(user -> user.getId().equals(targetId));
+
+        if (removed && systemLogs != null) {
+            String logAction = String.format("УДАЛЕН ПОЛЬЗОВАТЕЛЬ: %s %s (Роль: %s, Email: %s)", 
+                    userToDelete.getFirstName(), 
+                    userToDelete.getLastName(), 
+                    userToDelete.getClass().getSimpleName(), 
+                    userToDelete.getEmail());
+            
+            systemLogs.add(new Log(this.getId(), logAction));
+            System.out.println("✅ Пользователь " + userToDelete.getFirstName() + " успешно деактивирован и удален.");
+        }
+
+        return removed;
     }
 }

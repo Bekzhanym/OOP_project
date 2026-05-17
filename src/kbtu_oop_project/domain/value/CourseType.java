@@ -1,27 +1,62 @@
 package kbtu_oop_project.domain.value;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public enum CourseType {
-    MAJOR(true, "Core Major Discipline"),
     
-    ELECTIVE(false, "Elective Discipline"),
+    MAJOR(true, "Core Major Discipline", "Обязательный профильный предмет"),
     
-    MINOR(false, "Minor Program Course"),
+    ELECTIVE(false, "Elective Discipline", "Элективная дисциплина"),
     
-    REQUIRED_GENERAL(true, "Required General Education");
+    MINOR(false, "Minor Program Course", "Курс программы Minor"),
+    
+    REQUIRED_GENERAL(true, "Required General Education", "Обязательный общеобразовательный предмет");
 
     private final boolean isRequired;
-    private final String description;
+    private final String descriptionEng;
+    private final String descriptionRus;
 
-    CourseType(boolean isRequired, String description) {
+    CourseType(boolean isRequired, String descriptionEng, String descriptionRus) {
         this.isRequired = isRequired;
-        this.description = description;
+        this.descriptionEng = descriptionEng;
+        this.descriptionRus = descriptionRus;
     }
 
     public boolean isRequired() {
         return isRequired;
     }
 
-    public String getDescription() {
-        return description;
+    public String getDescriptionEng() {
+        return descriptionEng;
+    }
+
+    public String getDescriptionRus() {
+        return descriptionRus;
+    }
+
+    public static List<CourseType> getRequiredTypes() {
+        List<CourseType> required = new ArrayList<>();
+        for (CourseType type : CourseType.values()) {
+            if (type.isRequired()) {
+                required.add(type);
+            }
+        }
+        return required;
+    }
+
+    public static List<CourseType> getElectiveTypes() {
+        List<CourseType> electives = new ArrayList<>();
+        for (CourseType type : CourseType.values()) {
+            if (!type.isRequired()) {
+                electives.add(type);
+            }
+        }
+        return electives;
+    }
+
+    @Override
+    public String toString() {
+        return String.format("%s (%s)", name(), descriptionEng);
     }
 }

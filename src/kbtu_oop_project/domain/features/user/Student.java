@@ -16,7 +16,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Optional;
 
 public class Student extends User implements Researcher {
 
@@ -24,16 +23,18 @@ public class Student extends User implements Researcher {
     private static final int MAX_CREDITS_PER_TERM = 21;
     private static final int MAX_FAILED_ATTEMPTS = 3;
 
-    private String studentId;
     private double gpa;
     private int yearOfStudy;
-    private final List<Course> enrolledCourses = new ArrayList<>();
     private int totalCredits;
     private int failedAttempts;
-    private final Transcript transcript = new Transcript();
     private int hIndex;
+    
+    private final List<Course> enrolledCourses = new ArrayList<>();
     private final List<ResearchPaper> papers = new ArrayList<>();
     private final List<ResearchProject> researchProjects = new ArrayList<>();
+    private final Transcript transcript = new Transcript();
+    
+    private StartupProject startupProject;
     
     private Map<String, Integer> teacherRatingsByEmail = new HashMap<>();
 
@@ -62,78 +63,94 @@ public class Student extends User implements Researcher {
 
     @Override
     public void login() {
-        System.out.println("Студент " + getEmail() + " вошел в личный кабинет.");
+        System.out.println("🎓 Студент " + getEmail() + " вошел в личный кабинет Платонуса.");
     }
 
     @Override
     public void logout() {
-        System.out.println("Студент " + getEmail() + " вышел из системы.");
-    }
-
-    @Override
-    public void changePassword(String newPassword) {
-        super.changePassword(newPassword);
+        System.out.println("👋 Студент " + getEmail() + " вышел из системы.");
     }
 
     public void registerForCourse(Course course) {
         if (course == null) {
-            throw new IllegalArgumentException("Course required");
+            throw new IllegalArgumentException("Дисциплина не может быть null.");
         }
         if (enrolledCourses.contains(course)) {
-            throw new IllegalStateException("Already enrolled in this course.");
+            throw new IllegalStateException("Вы уже зарегистрированы на курс: " + course.getCourseName());
         }
         if (totalCredits + course.getCredits() > MAX_CREDITS_PER_TERM) {
-            throw new IllegalStateException("Would exceed max credits per term (" + MAX_CREDITS_PER_TERM + ").");
+            throw new IllegalStateException("Превышен лимит кредитов на семестр. Максимум: " + MAX_CREDITS_PER_TERM);
         }
+
         enrolledCourses.add(course);
         totalCredits += course.getCredits();
-        course.enrollStudent(this);
+
+        if (!course.getEnrolledStudents().contains(this)) {
+            course.enrollStudent(this);
+        }
+    }
+
+    public void dropCourse(Course course) {
+        if (enrolledCourses.remove(course)) {
+            totalCredits = Math.max(0, totalCredits - course.getCredits());
+            if (course.getEnrolledStudents().contains(this)) {
+                course.removeStudent(this);
+            }
+        }
     }
 
     public void viewTranscript() {
         if (!transcript.hasMarks()) {
-            System.out.println("Пока нет сохранённых оценок.");
+            System.out.println("Академический транскрипт пуст. Оценки за текущий период отсутствуют.");
             return;
         }
-        System.out.println("\n======= ОФИЦИАЛЬНЫЙ ТРАНСКРИПТ =======");
+        System.out.println("\n======= ОФИЦИАЛЬНЫЙ ТРАНСКРИПТ КБТУ =======");
         for (Map.Entry<String, Mark> e : transcript.getGradesBySemester("_").entrySet()) {
             Mark m = e.getValue();
-            System.out.println(e.getKey() + ": итог=" + String.format(Locale.ROOT, "%.1f", m.calculateFinalScore())
-                    + ", GPA(ball)=" + String.format(Locale.ROOT, "%.2f", m.calculateGPA())
-                    + ", зачёт=" + (m.isPassed() ? "да" : "нет"));
+            System.out.println(e.getKey() + " | Итог: " + String.format(Locale.ROOT, "%.1f", m.calculateFinalScore())
+                    + " | Буква: " + m.getLetterGrade() 
+                    + " | GPA: " + String.format(Locale.ROOT, "%.2f", m.calculateGPA())
+                    + " | Статус: " + (m.isPassed() ? "Зачтено" : "Retake"));
         }
-        System.out.println("--------------------------------------");
-        System.out.println("Средний GPA по transcript: "
-                + String.format(Locale.ROOT, "%.2f", transcript.getTotalGPA()));
-        System.out.println("======================================");
+        System.out.println("-------------------------------------------");
+        this.gpa = transcript.getTotalGPA();
+        System.out.println("Итоговый GPA Университета: " + String.format(Locale.ROOT, "%.2f", this.gpa));
+        System.out.println("===========================================");
     }
 
     public StartupProject submitStartup(String title, String description) {
         StartupProject startup = new StartupProject(title, description);
-        startup.addTeamMember(this); 
+        this.setStartupProject(startup); 
         return startup;
     }
 
-    public void requestRecommendation(Teacher teacher) {
-        if (teacher == null) {
-            throw new IllegalArgumentException("Teacher cannot be null");
-        }
-        teacher.writeRecommendation(this);
-    }
-
     public void addFailedAttempt() {
-        if (failedAttempts >= MAX_FAILED_ATTEMPTS) {
-            throw new IllegalStateException("Превышено максимальное количество завалов (FX/F). Студент отправляется на ретейк.");
-        }
         failedAttempts++;
+        if (failedAttempts >= MAX_FAILED_ATTEMPTS) {
+            System.out.println("🚨 Критическое предупреждение: Студент " + getFullName() + " отправлен на академический совет комиссии.");
+        }
+    }
+    public void rateTeacher(Teacher teacher, int stars1to5) {
+        if (teacher == null || teacher.getEmail() == null) {
+            throw new IllegalArgumentException("Указан некорректный преподаватель.");
+        }
+        if (stars1to5 < 1 || stars1to5 > 5) {
+            throw new IllegalArgumentException("Оценка должна быть строго от 1 до 5 звезд.");
+        }
+        
+        String teacherKey = teacher.getEmail().trim().toLowerCase(Locale.ROOT);
+        teacherRatingsBacking().put(teacherKey, stars1to5);
+        
+        teacher.addRating(this.getEmail(), stars1to5);
+        System.out.println("✅ Ваша оценка (" + stars1to5 + "★) для " + teacher.getFullName() + " успешно сохранена.");
     }
 
+    
     @Override
     public int getHIndex() {
         return hIndex;
     }
 
-    @Override
     public void setHIndex(int hIndex) {
         this.hIndex = hIndex;
     }
@@ -144,6 +161,14 @@ public class Student extends User implements Researcher {
     }
 
     @Override
+    public void addPaper(ResearchPaper paper) {
+        if (paper != null && !papers.contains(paper)) {
+            papers.add(paper);
+            updateHIndex(); 
+        }
+    }
+
+    @Override
     public void printPapers(Comparator<ResearchPaper> comparator) {
         if (papers.isEmpty()) {
             System.out.println("У студента пока нет опубликованных научных трудов.");
@@ -151,16 +176,9 @@ public class Student extends User implements Researcher {
         }
         List<ResearchPaper> copy = new ArrayList<>(papers);
         copy.sort(comparator);
-        for (ResearchPaper paper : copy) {
-            System.out.println(paper.getDetails());
-        }
-    }
-
-    @Override
-    public void addPaper(ResearchPaper paper) {
-        if (paper != null && !papers.contains(paper)) {
-            papers.add(paper);
-        }
+        
+        System.out.println("\n--- НАУЧНЫЕ ПУБЛИКАЦИИ СТУДЕНТА ---");
+        copy.forEach(paper -> System.out.println(paper.getDetails()));
     }
 
     @Override
@@ -170,88 +188,68 @@ public class Student extends User implements Researcher {
 
     @Override
     public void addResearchProject(ResearchProject project) {
-        if (project != null && !researchProjects.contains(project)) {
+        if (project == null) return;
+        if (!researchProjects.contains(project)) {
             researchProjects.add(project);
-            project.addParticipant(this);
+            
+            if (!project.getParticipants().contains(this)) {
+                project.addParticipant(this);
+            }
         }
     }
 
-    public String getMajor() {
-        return "";
+    private void updateHIndex() {
+        List<ResearchPaper> sorted = new ArrayList<>(papers);
+        sorted.sort((p1, p2) -> Integer.compare(p2.getCitations(), p1.getCitations()));
+        int h = 0;
+        for (int i = 0; i < sorted.size(); i++) {
+            if (sorted.get(i).getCitations() >= (i + 1)) h = i + 1;
+            else break;
+        }
+        this.hIndex = h;
     }
 
-    public Optional<Mark> getMarkForCourse(Course course) {
-        if (course == null) return Optional.empty();
-        return Optional.ofNullable(transcript.getMarkForCourse(course.getCourseCode()));
+    public String getStudentId() {
+        return getId();
     }
 
-    public void dropCourse(Course course) {
-        if (enrolledCourses.remove(course)) {
-            totalCredits = Math.max(0, totalCredits - course.getCredits());
-        }
-    }
-
-    public void rateTeacher(Teacher teacher, int stars1to5) {
-        if (teacher == null || teacher.getEmail() == null || teacher.getEmail().isBlank()) {
-            throw new IllegalArgumentException("Teacher email required.");
-        }
-        if (stars1to5 < 1 || stars1to5 > 5) {
-            throw new IllegalArgumentException("Rating must be between 1 and 5 stars.");
-        }
-        teacherRatingsBacking().put(teacher.getEmail().trim().toLowerCase(Locale.ROOT), stars1to5);
+    public void setStudentId(String studentId) {
         
-        teacher.addRating(this.getEmail(), stars1to5);
+    }
+
+    public double getGpa() {
+        if (transcript.hasMarks()) {
+            this.gpa = transcript.getTotalGPA();
+        }
+        return gpa;
+    }
+
+    public int getYearOfStudy() { return yearOfStudy; }
+    public void setYearOfStudy(int yearOfStudy) { this.yearOfStudy = yearOfStudy; }
+
+    public List<Course> getEnrolledCourses() { return Collections.unmodifiableList(enrolledCourses); }
+    public int getTotalCredits() { return totalCredits; }
+    public int getFailedAttempts() { return failedAttempts; }
+
+    public Transcript getTranscript() { 
+        return this.transcript; 
+    }
+
+    public StartupProject getStartupProject() { return startupProject; }
+    
+    public void setStartupProject(StartupProject project) {
+        if (this.startupProject == project) return;
+        StartupProject oldProject = this.startupProject;
+        this.startupProject = project;
+        if (oldProject != null) oldProject.removeTeamMember(this);
+        if (project != null && !project.getTeam().contains(this)) {
+            project.addTeamMember(this);
+        }
     }
 
     public Map<String, Integer> getTeacherRatingsSnapshot() {
         return Collections.unmodifiableMap(new HashMap<>(teacherRatingsBacking()));
     }
 
-    public String getStudentId() {
-        return studentId != null && !studentId.isBlank() ? studentId : getId();
-    }
-
-    public void setStudentId(String studentId) {
-        this.studentId = studentId;
-    }
-
-    public double getGpa() {
-        return gpa;
-    }
-
-    public void setGpa(double gpa) {
-        this.gpa = gpa;
-    }
-
-    public int getYearOfStudy() {
-        return yearOfStudy;
-    }
-
-    public void setYearOfStudy(int yearOfStudy) {
-        this.yearOfStudy = yearOfStudy;
-    }
-
-    public List<Course> getEnrolledCourses() {
-        return Collections.unmodifiableList(enrolledCourses);
-    }
-
-    public int getTotalCredits() {
-        return totalCredits;
-    }
-
-    public void setTotalCredits(int totalCredits) {
-        this.totalCredits = totalCredits;
-    }
-
-    public int getFailedAttempts() {
-        return failedAttempts;
-    }
-
-    public void setFailedAttempts(int failedAttempts) {
-        this.failedAttempts = failedAttempts;
-    }
-
-    public Transcript getTranscript() {
-        return transcript;
-    }
+    public String getMajor() { return "Computer Science (Information Systems)"; }
 }

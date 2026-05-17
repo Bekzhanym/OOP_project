@@ -9,19 +9,36 @@ import java.util.List;
 public class ResearcherProfile implements Serializable {
     private static final long serialVersionUID = 1L;
 
-    private int hIndex;
     private final List<ResearchPaper> papers = new ArrayList<>();
     private final List<ResearchProject> researchProjects = new ArrayList<>();
 
-    public int getHIndex() { return hIndex; }
-    public void setHIndex(int hIndex) { this.hIndex = hIndex; }
+   public int getHIndex() {
+        if (papers.isEmpty()) return 0;
 
+        List<Integer> citations = papers.stream()
+                .map(ResearchPaper::getCitations)
+                .sorted(Comparator.reverseOrder())
+                .toList();
+
+        int hIndex = 0;
+        for (int i = 0; i < citations.size(); i++) {
+            if (citations.get(i) >= i + 1) {
+                hIndex = i + 1;
+            } else {
+                break;
+            }
+        }
+        return hIndex;
+    }
+
+    
     public List<ResearchPaper> getPapers() {
         return Collections.unmodifiableList(papers);
     }
 
     public void addPaper(ResearchPaper paper) {
-        if (paper != null && !papers.contains(paper)) {
+        if (paper == null) throw new IllegalArgumentException("Статья не может быть null");
+        if (!papers.contains(paper)) {
             papers.add(paper);
         }
     }
@@ -44,7 +61,19 @@ public class ResearcherProfile implements Serializable {
         List<ResearchPaper> copy = new ArrayList<>(papers);
         copy.sort(comparator);
         for (ResearchPaper paper : copy) {
-            System.out.println(paper.getDetails()); // Метод из ТЗ (IEEE fields)
+            System.out.println(paper.getDetails()); 
+        }
+    }
+
+    public void printPapers() {
+        if (papers.isEmpty()) {
+            System.out.println("Нет опубликованных научных трудов.");
+            return;
+        }
+        List<ResearchPaper> copy = new ArrayList<>(papers);
+        Collections.sort(copy); 
+        for (ResearchPaper paper : copy) {
+            System.out.println(paper.getDetails());
         }
     }
 }

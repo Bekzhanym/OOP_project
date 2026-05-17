@@ -14,9 +14,9 @@ public class NonResearcherParticipantException extends RuntimeException {
         super(candidate == null
                 ? "Cannot add null participant to research project"
                 : String.format(
-                        "User [ID: %s, Role: %s] is not a Researcher and cannot join a ResearchProject",
+                        "Пользователь [ID: %s, Настоящая Роль: %s] не имеет подтвержденного статуса Исследователя и не может быть добавлен в ResearchProject.",
                         candidate.getId(),
-                        candidate.getClass().getSimpleName()));
+                        candidate.getClass().getSimpleName())); 
     }
 
     public NonResearcherParticipantException(String message, Throwable cause) {

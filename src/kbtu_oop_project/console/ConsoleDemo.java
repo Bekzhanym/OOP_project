@@ -1,7 +1,7 @@
 package kbtu_oop_project.console;
 
+import kbtu_oop_project.UniversityApp;
 import kbtu_oop_project.console.common.ConsoleUi;
-
 
 public final class ConsoleDemo {
 
@@ -10,29 +10,27 @@ public final class ConsoleDemo {
     }
 
     public static void main(String[] args) {
-        boolean testMode = false;
-        for (String arg : args) {
-            if ("--test-mode".equalsIgnoreCase(arg)) {
-                testMode = true;
-            }
-        }
-
-        if (testMode) {
-            System.out.println("[СИСТЕМА] Запуск в режиме тестирования (генерация дефолтных студентов/преподавателей)...");
-        }
+        
+        boolean testMode = true; 
 
         Thread.currentThread().setUncaughtExceptionHandler((thread, throwable) -> {
             ConsoleUi.header("КРИТИЧЕСКИЙ СБОЙ СИСТЕМЫ");
             System.err.println("Поток '" + thread.getName() + "' аварийно завершился.");
             System.err.println("Причина: " + throwable.toString());
-            System.err.println("\nПожалуйста, свяжитесь с поддержкой или перезапустите симулятор.");
+            System.err.println("\nПожалуйста, свяжитесь с поддержкой КБТУ или перезапустите симулятор.");
             throwable.printStackTrace(); 
         });
+
+        if (testMode) {
+            System.out.println("\n🚀 [СИСТЕМА] Принудительная инициализация демонстрационных данных (Seed Data)...");
+            UniversityApp.enableTestMode(); 
+        }
 
         try {
             ConsoleApplication.run();
         } catch (Throwable t) {
-            System.err.println("Фатальная ошибка при работе приложения: " + t.getMessage());
+            ConsoleUi.header("ФАТАЛЬНАЯ ОШИБКА ЯДРА");
+            System.err.println("Не удалось запустить симулятор: " + t.getMessage());
         }
     }
 }

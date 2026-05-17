@@ -19,7 +19,6 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 
-
 public class Teacher extends Employee implements Researcher {
 
     private static final long serialVersionUID = 1L;
@@ -29,6 +28,15 @@ public class Teacher extends Employee implements Researcher {
     private ResearcherProfile researcherProfile;
     private List<Course> taughtCourses;
     private Map<String, Integer> receivedRatings;
+
+    public Teacher() {
+        super();
+    }
+
+    public Teacher(String id, String firstName, String lastName, String email, String password, TeacherTitle title) {
+        super(id, firstName, lastName, email, password);
+        setTeacherTitle(title);
+    }
 
     private List<Course> taughtCoursesBacking() {
         if (taughtCourses == null) taughtCourses = new ArrayList<>();
@@ -40,63 +48,55 @@ public class Teacher extends Employee implements Researcher {
         return receivedRatings;
     }
 
-    private ResearcherProfile getProfile() {
-        if (researcherProfile == null && teacherTitle == TeacherTitle.PROFESSOR) {
-            researcherProfile = new ResearcherProfile();
-        }
-        return researcherProfile;
+    public boolean isResearcher() {
+        return this.researcherProfile != null;
     }
 
-    public boolean isResearcher() {
-        return getProfile() != null;
+    private ResearcherProfile ensureProfileExists() {
+        if (this.researcherProfile == null) {
+            this.researcherProfile = new ResearcherProfile();
+        }
+        return this.researcherProfile;
     }
 
     @Override
     public int getHIndex() {
-        return isResearcher() ? getProfile().getHIndex() : 0;
+        return isResearcher() ? this.researcherProfile.getHIndex() : 0;
     }
 
-    @Override
+    @Deprecated
     public void setHIndex(int hIndex) {
-        if (!isResearcher() && teacherTitle != TeacherTitle.PROFESSOR) {
-            this.researcherProfile = new ResearcherProfile();
-        }
-        getProfile().setHIndex(hIndex);
+        
+        
     }
 
     @Override
     public List<ResearchPaper> getPapers() {
-        return isResearcher() ? getProfile().getPapers() : Collections.emptyList();
+        return isResearcher() ? this.researcherProfile.getPapers() : Collections.emptyList();
     }
 
     @Override
     public void addPaper(ResearchPaper paper) {
-        if (!isResearcher()) {
-            this.researcherProfile = new ResearcherProfile();
-        }
-        getProfile().addPaper(paper);
+        ensureProfileExists().addPaper(paper);
     }
 
     @Override
     public void printPapers(Comparator<ResearchPaper> comparator) {
         if (!isResearcher()) {
-            System.out.println("Данный преподаватель не занимается научной деятельностью.");
+            System.out.println("Данный преподаватель пока не опубликовал научных трудов.");
             return;
         }
-        getProfile().printPapers(comparator);
+        this.researcherProfile.printPapers(comparator);
     }
 
     @Override
     public List<ResearchProject> getResearchProjects() {
-        return isResearcher() ? getProfile().getResearchProjects() : Collections.emptyList();
+        return isResearcher() ? this.researcherProfile.getResearchProjects() : Collections.emptyList();
     }
 
     @Override
     public void addResearchProject(ResearchProject project) {
-        if (!isResearcher()) {
-            this.researcherProfile = new ResearcherProfile();
-        }
-        getProfile().addResearchProject(project);
+        ensureProfileExists().addResearchProject(project);
     }
 
     public List<Course> getTaughtCourses() {
@@ -115,7 +115,7 @@ public class Teacher extends Employee implements Researcher {
 
     public void addRating(String studentEmail, int stars) {
         if (studentEmail == null || studentEmail.isBlank()) return;
-        if (stars < 1 || stars > 5) throw new IllegalArgumentException("Rating must be 1–5.");
+        if (stars < 1 || stars > 5) throw new IllegalArgumentException("Оценка должна быть в диапазоне 1-5 звезд.");
         receivedRatingsBacking().put(studentEmail.trim().toLowerCase(Locale.ROOT), stars);
     }
 
@@ -124,50 +124,57 @@ public class Teacher extends Employee implements Researcher {
     }
 
     public void putMark(Student student, Course course, Mark mark) {
-        Objects.requireNonNull(student, "Student required");
-        Objects.requireNonNull(course, "Course required");
-        Objects.requireNonNull(mark, "Mark required");
+        Objects.requireNonNull(student, "Студент обязателен.");
+        Objects.requireNonNull(course, "Курс обязателен.");
+        Objects.requireNonNull(mark, "Оценка обязательна.");
+        
         if (!taughtCoursesBacking().contains(course)) {
-            throw new IllegalStateException("Вы не являетесь преподавателем данного курса.");
+            throw new IllegalStateException("Вы не являетесь назначенным преподавателем курса: " + course.getCourseName());
         }
+        
         student.getTranscript().addMark(course, mark);
+        System.out.println(String.format("✅ Преподаватель %s выставил оценку для %s по курсу %s", 
+                this.getLastName(), student.getFullName(), course.getCourseCode()));
     }
 
     public void manageCourse(Course course, String newName, Integer newCredits,
                              CourseType newType, Lesson newLesson) {
-        Objects.requireNonNull(course, "Course required");
+        Objects.requireNonNull(course, "Курс обязателен");
         if (!taughtCoursesBacking().contains(course)) {
-            throw new IllegalStateException("Вы не являетесь преподавателем данного курса.");
+            throw new IllegalStateException("Вы не имеете прав управления данным курсом.");
         }
         if (newName != null && !newName.isBlank()) course.setCourseName(newName.trim());
         if (newCredits != null && newCredits > 0) course.setCredits(newCredits);
         if (newType != null) course.setCourseType(newType);
-        if (newLesson != null) course.setLesson(newLesson);
+        if (newLesson != null) course.addLesson(newLesson); 
         course.notifyObservers();
     }
 
     public void exportGradeReport(Course course) {
-        Objects.requireNonNull(course, "Course required");
+        Objects.requireNonNull(course, "Курс обязателен");
         if (!taughtCoursesBacking().contains(course)) {
-            throw new IllegalStateException("Вы не являетесь преподавателем данного курса.");
+            throw new IllegalStateException("Доступ запрещен.");
         }
-        System.out.println("=== Ведомость: " + course.getCourseCode() + " — " + course.getCourseName() + " ===");
+        System.out.println("\n=== ОФИЦИАЛЬНАЯ ВЕДОМОСТЬ КУРСА: " + course.getCourseCode() + " ===");
         if (course.getEnrolledStudents().isEmpty()) {
-            System.out.println("(нет записавшихся студентов)");
+            System.out.println("(нет зарегистрированных студентов)");
             return;
         }
         for (Student s : course.getEnrolledStudents()) {
             Mark m = s.getTranscript().getMarkForCourse(course.getCourseCode());
-            String markStr = m != null ? m.toString() : "—";
-            System.out.println(s.getStudentId() + " | " + s.getFullName() + " | " + markStr);
+            String markStr = m != null ? m.toString() : "No Mark";
+            System.out.println(s.getId() + " | " + s.getFullName() + " | " + markStr); 
         }
     }
 
-    public void writeRecommendation(Student student) {
-        Objects.requireNonNull(student, "Student required");
-        String text = "Настоящим подтверждаю высокие академические показатели студента " + student.getFullName() + ".";
-        RecommendationLetter letter = new RecommendationLetter(this, student.getEmail(), text);
-        System.out.println(letter);
+    public void writeRecommendation(Student student, String customText) {
+        Objects.requireNonNull(student, "Студент обязателен");
+        
+        String finalSubstance = (customText != null && !customText.isBlank()) ? customText.trim() :
+                "Настоящим подтверждаю высокие академические и этические показатели студента " + student.getFullName() + ".";
+        
+        RecommendationLetter letter = new RecommendationLetter(this, student.getEmail(), finalSubstance);
+        System.out.println("📜 Рекомендательное письмо успешно подписано и отправлено студенту:\n" + letter);
     }
 
     public TeacherTitle getTitle() { return teacherTitle; }

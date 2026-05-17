@@ -63,7 +63,7 @@ public final class ConsoleUi {
 
     public static double promptDouble(Scanner in, String label, double min, double max) {
         while (true) {
-            System.out.print(label + " (через точку, например 3.67): ");
+            System.out.print(label + " (диапазон " + min + " - " + max + "): ");
             String line = trim(in.nextLine()).replace(',', '.');
             try {
                 double v = Double.parseDouble(line);
@@ -72,14 +72,14 @@ public final class ConsoleUi {
                 }
                 System.out.println("Ошибка: значение должно быть от " + min + " до " + max);
             } catch (NumberFormatException e) {
-                System.out.println("Ошибка: введите корректное дробное число.");
+                System.out.println("Ошибка: введите корректное дробное число (например, 3.67).");
             }
         }
     }
 
     public static LocalDate promptDate(Scanner in, String label, LocalDate defaultDate) {
         while (true) {
-            System.out.print(label + " (ГГГГ-ММ-ДД) [Нажмите Enter для значения по умолчанию]: ");
+            System.out.print(label + " (ГГГГ-ММ-ДД) [Enter для " + defaultDate + "]: ");
             String line = trim(in.nextLine());
             if (line.isEmpty()) {
                 return defaultDate;
@@ -87,7 +87,7 @@ public final class ConsoleUi {
             try {
                 return LocalDate.parse(line);
             } catch (DateTimeParseException e) {
-                System.out.println("Ошибка: неверный формат. Используйте шаблон YYYY-MM-DD (например, 2026-05-17).");
+                System.out.println("Ошибка: неверный формат. Используйте шаблон YYYY-MM-DD (например, " + LocalDate.now() + ").");
             }
         }
     }
@@ -112,16 +112,15 @@ public final class ConsoleUi {
         while (true) {
             System.out.print("Ваш выбор (1/2/3): ");
             String c = trim(in.nextLine());
-            switch (c) {
-                case "1":
-                    return ResearchPaperComparators.BY_DATE;
-                case "2":
-                    return ResearchPaperComparators.BY_CITATIONS;
-                case "3":
-                    return ResearchPaperComparators.BY_PAGES;
-                default:
+            return switch (c) {
+                case "1" -> ResearchPaperComparators.BY_DATE;
+                case "2" -> ResearchPaperComparators.BY_CITATIONS;
+                case "3" -> ResearchPaperComparators.BY_PAGES;
+                default -> {
                     System.out.println("Ошибка: выберите пункт 1, 2 или 3.");
-            }
+                    yield null; 
+                }
+            };
         }
     }
 }

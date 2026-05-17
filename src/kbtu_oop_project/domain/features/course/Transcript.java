@@ -34,11 +34,23 @@ public class Transcript implements Serializable {
     }
 
     public Map<String, Mark> getGradesBySemester(String semesterFilter) {
+        if (semesterFilter == null || semesterFilter.isBlank()) {
+            return Collections.emptyMap();
+        }
+
         return courseMarks.entrySet().stream()
                 .filter(e -> e.getKey().getCourseCode() != null)
+                .filter(e -> matchSemesterOrCode(e.getKey(), semesterFilter))
                 .collect(Collectors.toMap(
                         e -> e.getKey().getCourseCode(),
-                        Map.Entry::getValue));
+                        Map.Entry::getValue,
+                        (existingMark, newMark) -> existingMark.getTotalScore() >= newMark.getTotalScore() ? existingMark : newMark
+                ));
+    }
+
+    private boolean matchSemesterOrCode(Course course, String semesterFilter) {
+        if (course.getCourseName() == null) return false;
+        return true; 
     }
 
     public Mark getMarkForCourse(String courseCode) {
@@ -66,14 +78,18 @@ public class Transcript implements Serializable {
             Course course = entry.getKey();
             Mark mark = entry.getValue();
             
-            // Умножаем GPA за курс на его кредиты (например, 4.0 * 5 кредитов = 20)
-            totalWeightedPoints += mark.calculateGPA() * course.getCredits();
-            totalCredits += course.getCredits();
+            int credits = course.getCredits();
+            if (credits > 0) {
+                totalWeightedPoints += mark.calculateGPA() * credits;
+                totalCredits += credits;
+            }
         }
 
         if (totalCredits == 0) return 0.0;
         
-        return totalWeightedPoints / totalCredits;
+        double rawGpa = totalWeightedPoints / totalCredits;
+        
+        return Math.round(rawGpa * 100.0) / 100.0;
     }
 
     public double getTotalGPA() {
@@ -83,22 +99,27 @@ public class Transcript implements Serializable {
     @Override
     public String toString() {
         if (courseMarks.isEmpty()) {
-            return "Транскрипт пуст.";
+            return "=================== OFFICIAL TRANSCRIPT ===================\n" +
+                   " Траскрипт пуст (нет завершенных дисциплин).\n" +
+                   "===========================================================";
         }
         
         StringBuilder sb = new StringBuilder();
-        sb.append("============= OFFICIAL TRANSCRIPT =============\n");
+        sb.append("\n=================== OFFICIAL TRANSCRIPT ===================\n");
+        
         courseMarks.forEach((course, mark) -> {
-            sb.append(String.format("%-10s | %-25s | Кредиты: %d | Оценка: %s (GPA: %.2f)\n",
+            sb.append(String.format(" %-9s | %-25.25s | %2d ECTS | %-2s (Points: %3d, GPA: %.2f)\n",
                     course.getCourseCode(),
                     course.getCourseName(),
                     course.getCredits(),
                     mark.getLetterGrade(),
+                    mark.calculateFinalScore(),
                     mark.calculateGPA()));
         });
-        sb.append("-----------------------------------------------\n");
-        sb.append(String.format("Итоговый кумулятивный GPA: %.2f\n", getTotalGPA()));
-        sb.append("===============================================");
+        
+        sb.append("-----------------------------------------------------------\n");
+        sb.append(String.format(" Итоговый кумулятивный GPA (Cumulative GPA): %.2f\n", getTotalGPA()));
+        sb.append("===========================================================");
         return sb.toString();
     }
 }

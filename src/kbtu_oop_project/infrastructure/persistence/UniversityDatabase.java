@@ -11,34 +11,25 @@ import kbtu_oop_project.domain.features.user.Employee;
 import kbtu_oop_project.domain.features.user.Student;
 import kbtu_oop_project.domain.features.user.Teacher;
 import kbtu_oop_project.domain.features.user.User;
+import kbtu_oop_project.domain.value.MessageKind;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
-import java.io.ObjectStreamClass;
+import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.stream.Collectors;
+import java.util.*;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.regex.Pattern;
-import kbtu_oop_project.domain.value.MessageKind;
+import java.util.stream.Collectors;
 
 public final class UniversityDatabase {
+    
     private static final Path DEFAULT_STORAGE = Paths.get("data", "university-state.ser");
+    private static final Path TEMP_STORAGE = Paths.get("data", "university-state.tmp");
 
-    /** Snapshots saved before packages moved out of {@code edu.university.domain.model}. */
     private static final Map<String, String> LEGACY_MODEL_TO_FEATURES = legacyModelAliases();
 
     private static Map<String, String> legacyModelAliases() {
@@ -77,32 +68,37 @@ public final class UniversityDatabase {
         return Map.copyOf(m);
     }
 
-    private static UniversityDatabase instance;
+    private static volatile UniversityDatabase instance;
 
-    private final List<User> users = new ArrayList<>();
-    private final List<Course> courses = new ArrayList<>();
-    private final List<String> logLines = new ArrayList<>();
-    private final List<Log> logs = new ArrayList<>();
-    private final List<PendingCourseRegistration> pendingCourseRegistrations = new ArrayList<>();
-    private final List<ResearchProject> researchProjects = new ArrayList<>();
-    private final List<EmployeeMessage> employeeMessages = new ArrayList<>();
-    /** Новости для менеджера / просмотра (соответствует {@code Manager#manageNews}). */
-    private final List<String> newsItems = new ArrayList<>();
+    private final List<User> users = new CopyOnWriteArrayList<>();
+    private final List<Course> courses = new CopyOnWriteArrayList<>();
+    private final List<String> logLines = new CopyOnWriteArrayList<>();
+    private final List<Log> logs = new CopyOnWriteArrayList<>();
+    private final List<PendingCourseRegistration> pendingCourseRegistrations = new CopyOnWriteArrayList<>();
+    private final List<ResearchProject> researchProjects = new CopyOnWriteArrayList<>();
+    private final List<EmployeeMessage> employeeMessages = new CopyOnWriteArrayList<>();
+    private final List<String> newsItems = new CopyOnWriteArrayList<>();
 
     private UniversityDatabase() {
     }
 
-    public static synchronized UniversityDatabase getInstance() {
-        if (instance == null) {
-            instance = new UniversityDatabase();
+    public static UniversityDatabase getInstance() {
+        UniversityDatabase localInstance = instance;
+        if (localInstance == null) {
+            synchronized (UniversityDatabase.class) {
+                localInstance = instance;
+                if (localInstance == null) {
+                    instance = localInstance = new UniversityDatabase();
+                }
+            }
         }
-        return instance;
+        return localInstance;
     }
 
-    public void saveData() {
+    public synchronized void saveData() {
         try {
             Files.createDirectories(DEFAULT_STORAGE.getParent());
-            try (ObjectOutputStream oos = new ObjectOutputStream(Files.newOutputStream(DEFAULT_STORAGE))) {
+            try (ObjectOutputStream oos = new ObjectOutputStream(Files.newOutputStream(TEMP_STORAGE))) {
                 oos.writeObject(new ArrayList<>(users));
                 oos.writeObject(new ArrayList<>(courses));
                 oos.writeObject(new ArrayList<>(logLines));
@@ -112,13 +108,14 @@ public final class UniversityDatabase {
                 oos.writeObject(new ArrayList<>(employeeMessages));
                 oos.writeObject(new ArrayList<>(newsItems));
             }
+            Files.move(TEMP_STORAGE, DEFAULT_STORAGE, StandardCopyOption.REPLACE_EXISTING);
         } catch (IOException e) {
-            throw new IllegalStateException("Failed to save university state", e);
+            throw new IllegalStateException("🚨 Critical error: Failed to safely save university state", e);
         }
     }
 
     @SuppressWarnings("unchecked")
-    public void loadData() {
+    public synchronized void loadData() {
         if (!Files.exists(DEFAULT_STORAGE)) {
             return;
         }
@@ -131,27 +128,31 @@ public final class UniversityDatabase {
             researchProjects.clear();
             employeeMessages.clear();
             newsItems.clear();
+
             users.addAll((List<User>) ois.readObject());
             courses.addAll((List<Course>) ois.readObject());
             logLines.addAll((List<String>) ois.readObject());
             logs.addAll((List<Log>) ois.readObject());
+            
             readOptionalSnapshotTail(ois);
+            
             rebuildTeachingAssociations();
             rebuildEnrollmentAssociations();
         } catch (IOException | ClassNotFoundException e) {
-            throw new IllegalStateException("Failed to load university state", e);
+            throw new IllegalStateException("🚨 Critical error: Failed to parse state file. Possible version mismatch.", e);
         }
     }
 
     private void rebuildTeachingAssociations() {
         for (Course course : courses) {
-            for (Teacher instructor : course.getInstructors()) {
-                instructor.attachTeachingAssignment(course);
+            if (course.getInstructors() != null) {
+                for (Teacher instructor : course.getInstructors()) {
+                    instructor.attachTeachingAssignment(course);
+                }
             }
         }
     }
 
-    /** Keeps {@link Course#getEnrolledStudents()} consistent with {@link Student#getEnrolledCourses()} after load. */
     private void rebuildEnrollmentAssociations() {
         for (Course course : courses) {
             course.clearEnrolledStudents();
@@ -167,27 +168,14 @@ public final class UniversityDatabase {
 
     @SuppressWarnings("unchecked")
     private void readOptionalSnapshotTail(ObjectInputStream ois) {
-        try {
-            pendingCourseRegistrations.addAll((List<PendingCourseRegistration>) ois.readObject());
-        } catch (Exception ignored) {
-            // snapshots written before extended tail existed
-        }
-        try {
-            researchProjects.addAll((List<ResearchProject>) ois.readObject());
-        } catch (Exception ignored) {
-        }
-        try {
-            employeeMessages.addAll((List<EmployeeMessage>) ois.readObject());
-        } catch (Exception ignored) {
-        }
-        try {
-            newsItems.addAll((List<String>) ois.readObject());
-        } catch (Exception ignored) {
-        }
+        try { pendingCourseRegistrations.addAll((List<PendingCourseRegistration>) ois.readObject()); } catch (Exception ignored) {}
+        try { researchProjects.addAll((List<ResearchProject>) ois.readObject()); } catch (Exception ignored) {}
+        try { employeeMessages.addAll((List<EmployeeMessage>) ois.readObject()); } catch (Exception ignored) {}
+        try { newsItems.addAll((List<String>) ois.readObject()); } catch (Exception ignored) {}
     }
 
     public void add(User user) {
-        users.add(user);
+        if (user != null) users.add(user);
     }
 
     public List<User> findAllUsers() {
@@ -195,20 +183,15 @@ public final class UniversityDatabase {
     }
 
     public Optional<User> findByEmailIgnoreCase(String email) {
-        if (email == null || email.isBlank()) {
-            return Optional.empty();
-        }
+        if (email == null || email.isBlank()) return Optional.empty();
         String needle = email.trim().toLowerCase(Locale.ROOT);
         return users.stream()
-                .filter(u -> u.getEmail() != null
-                        && needle.equals(u.getEmail().trim().toLowerCase(Locale.ROOT)))
+                .filter(u -> u.getEmail() != null && needle.equals(u.getEmail().trim().toLowerCase(Locale.ROOT)))
                 .findFirst();
     }
 
     public Optional<Student> findStudentByStudentId(String studentId) {
-        if (studentId == null || studentId.isBlank()) {
-            return Optional.empty();
-        }
+        if (studentId == null || studentId.isBlank()) return Optional.empty();
         String needle = studentId.trim();
         return users.stream()
                 .filter(u -> u instanceof Student)
@@ -218,7 +201,7 @@ public final class UniversityDatabase {
     }
 
     public void add(Course course) {
-        courses.add(course);
+        if (course != null) courses.add(course);
     }
 
     public List<Course> findAllCourses() {
@@ -226,49 +209,46 @@ public final class UniversityDatabase {
     }
 
     public Optional<Course> findCourseByCode(String rawCode) {
-        if (rawCode == null || rawCode.isBlank()) {
-            return Optional.empty();
-        }
+        if (rawCode == null || rawCode.isBlank()) return Optional.empty();
         String code = rawCode.trim();
         return courses.stream()
                 .filter(c -> c.getCourseCode() != null && code.equalsIgnoreCase(c.getCourseCode()))
                 .findFirst();
     }
 
-    /**
-     * Advanced search over user emails and course names (bonus / checklist).
-     */
     public List<Object> advancedSearch(String regex) {
-        Pattern pattern = Pattern.compile(regex);
-        List<Object> results = new ArrayList<>();
-        for (User user : users) {
-            if (user.getEmail() != null && pattern.matcher(user.getEmail()).find()) {
-                results.add(user);
+        try {
+            Pattern pattern = Pattern.compile(regex, Pattern.CASE_INSENSITIVE);
+            List<Object> results = new ArrayList<>();
+            for (User user : users) {
+                if (user.getEmail() != null && pattern.matcher(user.getEmail()).find()) {
+                    results.add(user);
+                }
             }
-        }
-        for (Course course : courses) {
-            if (course.getCourseName() != null && pattern.matcher(course.getCourseName()).find()) {
-                results.add(course);
+            for (Course course : courses) {
+                if (course.getCourseName() != null && pattern.matcher(course.getCourseName()).find()) {
+                    results.add(course);
+                }
             }
+            return results;
+        } catch (Exception e) {
+            return List.of(); 
         }
-        return results;
     }
 
     public List<Researcher> getAllResearchers() {
-        List<Researcher> researchers = new ArrayList<>();
-        for (User user : users) {
-            if (user instanceof Researcher researcher) {
-                researchers.add(researcher);
-            }
-        }
-        return researchers;
+        return users.stream()
+                .filter(u -> u instanceof Researcher)
+                .map(u -> (Researcher) u)
+                .collect(Collectors.toList());
     }
 
     private static int totalCitations(Researcher researcher) {
-        return researcher.getPapers().stream().mapToInt(ResearchPaper::getCitations).sum();
+        return researcher.getPapers() == null ? 0 : researcher.getPapers().stream().mapToInt(ResearchPaper::getCitations).sum();
     }
 
     private static int citationsInYear(Researcher researcher, int year) {
+        if (researcher.getPapers() == null) return 0;
         return researcher.getPapers().stream()
                 .filter(p -> p.getDate() != null && p.getDate().getYear() == year)
                 .mapToInt(ResearchPaper::getCitations)
@@ -276,13 +256,11 @@ public final class UniversityDatabase {
     }
 
     public Optional<Researcher> findTopResearcherByTotalCitations() {
-        return getAllResearchers().stream()
-                .max(Comparator.comparingInt(UniversityDatabase::totalCitations));
+        return getAllResearchers().stream().max(Comparator.comparingInt(UniversityDatabase::totalCitations));
     }
 
     public Optional<Researcher> findTopResearcherByCitationsInYear(int year) {
-        return getAllResearchers().stream()
-                .max(Comparator.comparingInt(r -> citationsInYear(r, year)));
+        return getAllResearchers().stream().max(Comparator.comparingInt(r -> citationsInYear(r, year)));
     }
 
     public void printAllResearchersPapersSorted(Comparator<ResearchPaper> comparator) {
@@ -293,38 +271,18 @@ public final class UniversityDatabase {
         }
     }
 
-    public void addUser(User user) {
-        add(user);
-    }
-
-    public void addCourse(Course course) {
-        add(course);
-    }
-
-    public List<User> getUsers() {
-        return findAllUsers();
-    }
-
-    public List<Course> getCourses() {
-        return findAllCourses();
-    }
-
-    public List<String> getLogLines() {
-        return Collections.unmodifiableList(logLines);
-    }
-
-    public List<Log> getLogs() {
-        return Collections.unmodifiableList(logs);
-    }
+    public void addUser(User user) { add(user); }
+    public void addCourse(Course course) { add(course); }
+    public List<User> getUsers() { return findAllUsers(); }
+    public List<Course> getCourses() { return findAllCourses(); }
+    public List<String> getLogLines() { return Collections.unmodifiableList(logLines); }
+    public List<Log> getLogs() { return Collections.unmodifiableList(logs); }
 
     public void recordAudit(String message) {
         logLines.add(LocalDate.now() + " | " + message);
     }
 
     public void recordStructured(Log entry) {
-        if (entry.getTimestamp() == null) {
-            entry.setTimestamp(LocalDateTime.now());
-        }
         logs.add(entry);
     }
 
@@ -370,20 +328,17 @@ public final class UniversityDatabase {
             throw new IllegalStateException("Would exceed max credits (21).");
         }
         boolean dupPending = pendingCourseRegistrations.stream().anyMatch(p ->
-                emailsMatchIgnoreCase(p.getStudentEmail(), email)
-                        && emailsMatchIgnoreCase(p.getCourseCode(), code));
+                emailsMatchIgnoreCase(p.getStudentEmail(), email) && emailsMatchIgnoreCase(p.getCourseCode(), code));
         if (dupPending) {
             throw new IllegalStateException("Request already pending.");
         }
-        pendingCourseRegistrations.add(new PendingCourseRegistration(email.trim(), code.trim(),
-                System.currentTimeMillis()));
+        pendingCourseRegistrations.add(new PendingCourseRegistration(email.trim(), code.trim()));
         recordAudit("PENDING_REG " + email.trim() + " → " + code.trim());
     }
 
     private Optional<PendingCourseRegistration> removePendingRegistration(String studentEmail, String courseCode) {
         Optional<PendingCourseRegistration> match = pendingCourseRegistrations.stream()
-                .filter(p -> emailsMatchIgnoreCase(p.getStudentEmail(), studentEmail)
-                        && emailsMatchIgnoreCase(p.getCourseCode(), courseCode))
+                .filter(p -> emailsMatchIgnoreCase(p.getStudentEmail(), studentEmail) && emailsMatchIgnoreCase(p.getCourseCode(), courseCode))
                 .findFirst();
         match.ifPresent(pendingCourseRegistrations::remove);
         return match;
@@ -391,9 +346,8 @@ public final class UniversityDatabase {
 
     public boolean approvePendingCourseRegistration(String studentEmail, String courseCode) {
         Optional<PendingCourseRegistration> pend = removePendingRegistration(studentEmail, courseCode);
-        if (pend.isEmpty()) {
-            return false;
-        }
+        if (pend.isEmpty()) return false;
+
         Optional<Student> st = findStudentByEmailIgnoreCase(studentEmail);
         Optional<Course> co = findCourseByCode(courseCode);
         if (st.isEmpty() || co.isEmpty()) {
@@ -429,9 +383,7 @@ public final class UniversityDatabase {
     }
 
     public Optional<ResearchProject> findResearchProjectByTopicSubstring(String needle) {
-        if (needle == null || needle.isBlank()) {
-            return Optional.empty();
-        }
+        if (needle == null || needle.isBlank()) return Optional.empty();
         String n = needle.trim().toLowerCase(Locale.ROOT);
         return researchProjects.stream()
                 .filter(p -> p.getTopic() != null && p.getTopic().toLowerCase(Locale.ROOT).contains(n))
@@ -439,50 +391,33 @@ public final class UniversityDatabase {
     }
 
     public List<EmployeeMessage> messagesForRecipientEmailIgnoreCase(String email) {
-        if (email == null || email.isBlank()) {
-            return List.of();
-        }
+        if (email == null || email.isBlank()) return List.of();
         String needle = email.trim().toLowerCase(Locale.ROOT);
-        List<EmployeeMessage> copy = employeeMessages.stream()
-                .filter(m -> m.getToEmail() != null
-                        && needle.equals(m.getToEmail().trim().toLowerCase(Locale.ROOT)))
-                .collect(Collectors.toList());
-        return Collections.unmodifiableList(copy);
+        return employeeMessages.stream()
+                .filter(m -> m.getToEmail() != null && needle.equals(m.getToEmail().trim().toLowerCase(Locale.ROOT)))
+                .collect(Collectors.toUnmodifiableList());
     }
 
     public List<EmployeeMessage> messagesRequiringDeanSignature() {
-        List<EmployeeMessage> copy = employeeMessages.stream()
+        return employeeMessages.stream()
                 .filter(EmployeeMessage::isRequiresDeanSignature)
-                .collect(Collectors.toList());
-        return Collections.unmodifiableList(copy);
+                .collect(Collectors.toUnmodifiableList());
     }
 
-    public void postEmployeeMessage(User fromUser, String toEmail, MessageKind kind, String body,
-                                    boolean requiresDeanSignature) {
+    public void postEmployeeMessage(User fromUser, String toEmail, MessageKind kind, String body, boolean requiresDeanSignature) {
         Objects.requireNonNull(fromUser);
         if (!(fromUser instanceof Employee)) {
             throw new IllegalArgumentException("Only employees may send internal mail.");
         }
-        if (toEmail == null || toEmail.isBlank()) {
-            throw new IllegalArgumentException("Recipient email required.");
-        }
-        if (body == null || body.isBlank()) {
-            throw new IllegalArgumentException("Message body required.");
-        }
-        EmployeeMessage msg = new EmployeeMessage(
-                fromUser.getId(),
-                fromUser.getEmail(),
-                toEmail.trim(),
-                kind,
-                body,
-                requiresDeanSignature);
+        if (toEmail == null || toEmail.isBlank()) throw new IllegalArgumentException("Recipient email required.");
+        if (body == null || body.isBlank()) throw new IllegalArgumentException("Message body required.");
+
+        EmployeeMessage msg = new EmployeeMessage(fromUser.getId(), fromUser.getEmail(), toEmail.trim(), kind, body, requiresDeanSignature);
         employeeMessages.add(msg);
         recordAudit("MAIL_" + kind.name() + " " + fromUser.getEmail() + "→" + toEmail.trim());
     }
 
-    public int getPendingCount() {
-        return pendingCourseRegistrations.size();
-    }
+    public int getPendingCount() { return pendingCourseRegistrations.size(); }
 
     public boolean removeUser(User user) {
         Objects.requireNonNull(user);
@@ -490,7 +425,7 @@ public final class UniversityDatabase {
             pendingCourseRegistrations.removeIf(p -> emailsMatchIgnoreCase(p.getStudentEmail(), st.getEmail()));
         }
         if (user instanceof Teacher t) {
-            for (Course c : new ArrayList<>(courses)) {
+            for (Course c : courses) {
                 if (c.getInstructors().contains(t)) {
                     c.removeInstructor(t);
                 }
@@ -501,12 +436,12 @@ public final class UniversityDatabase {
 
     public boolean removeCourseByCode(String rawCode) {
         Optional<Course> opt = findCourseByCode(rawCode);
-        if (opt.isEmpty()) {
-            return false;
-        }
+        if (opt.isEmpty()) return false;
+
         Course victim = opt.get();
         pendingCourseRegistrations.removeIf(p -> emailsMatchIgnoreCase(p.getCourseCode(), victim.getCourseCode()));
-        for (Teacher t : new ArrayList<>(victim.getInstructors())) {
+        
+        for (Teacher t : victim.getInstructors()) {
             victim.removeInstructor(t);
         }
         for (User u : users) {
@@ -519,7 +454,6 @@ public final class UniversityDatabase {
     }
 
     private static final class MigratingObjectInputStream extends ObjectInputStream {
-
         private static final String LEGACY_MODEL_PREFIX = "edu.university.domain.model.";
 
         MigratingObjectInputStream(InputStream in) throws IOException {
@@ -527,22 +461,18 @@ public final class UniversityDatabase {
         }
 
         @Override
-        protected Class<?> resolveClass(ObjectStreamClass desc)
-                throws IOException, ClassNotFoundException {
+        protected Class<?> resolveClass(ObjectStreamClass desc) throws IOException, ClassNotFoundException {
             String name = desc.getName();
             if (name.startsWith(LEGACY_MODEL_PREFIX)) {
                 String simple = name.substring(LEGACY_MODEL_PREFIX.length());
                 String fqcn = LEGACY_MODEL_TO_FEATURES.get(simple);
-                if (fqcn != null) {
-                    return Class.forName(fqcn);
-                }
+                if (fqcn != null) return Class.forName(fqcn);
             }
             if (name.startsWith("edu.university.")) {
                 String candidate = name.replace("edu.university.", "kbtu_oop_project.");
                 try {
                     return Class.forName(candidate);
-                } catch (ClassNotFoundException ignored) {
-                }
+                } catch (ClassNotFoundException ignored) {}
             }
             return super.resolveClass(desc);
         }

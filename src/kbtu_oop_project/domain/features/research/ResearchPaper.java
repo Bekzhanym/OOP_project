@@ -8,70 +8,66 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 
-public class ResearchPaper implements Serializable, Comparable<ResearchPaper> {
+public final class ResearchPaper implements Serializable, Comparable<ResearchPaper> {
 
     private static final long serialVersionUID = 1L;
 
-    private String title;
-    private List<String> authors;
-    private String journal;
-    private String publisher;
-    private String doi;
-    private String keywords;
-    private int citations;
-    private int pages;
-    private LocalDate date;
+    private final String title;
+    private final List<String> authors;
+    private final String journal;
+    private final String publisher;
+    private final String doi;
+    private final String keywords;
+    private int citations; 
+    private final int pages;
+    private final LocalDate date;
 
     public ResearchPaper(String title, List<String> authors, String journal, String publisher,
                          String doi, String keywords, int citations, int pages, LocalDate date) {
-        this.title = Objects.requireNonNullElse(title, "").trim();
+        this.title = title != null ? title.trim() : "Untitled";
         this.authors = authors != null ? new ArrayList<>(authors) : new ArrayList<>();
-        this.journal = journal;
-        this.publisher = publisher;
-        this.doi = doi;
-        this.keywords = keywords;
-        this.citations = citations;
-        this.pages = pages;
+        this.journal = journal != null ? journal.trim() : "—";
+        this.publisher = publisher != null ? publisher.trim() : "—";
+        this.doi = doi != null ? doi.trim() : "";
+        this.keywords = keywords != null ? keywords.trim() : "—";
+        this.citations = Math.max(0, citations);
+        this.pages = Math.max(1, pages);
         this.date = date != null ? date : LocalDate.MIN;
     }
 
     public ResearchPaper(String title, int citations, int pages, LocalDate date) {
-        this(title, List.of(), null, null, null, null, citations, pages,
-                date != null ? date : LocalDate.MIN);
+        this(title, List.of(), null, null, null, null, citations, pages, date);
     }
 
     @Override
     public int compareTo(ResearchPaper other) {
-        if (other == null) {
-            return 1;
-        }
-        int byDate = Comparator.nullsFirst(LocalDate::compareTo).compare(date, other.date);
-        if (byDate != 0) {
-            return byDate;
-        }
-        return Comparator.nullsFirst(String.CASE_INSENSITIVE_ORDER).compare(title, other.title);
+        if (other == null) return 1;
+        
+        int byDate = Comparator.nullsFirst(LocalDate::compareTo).compare(other.date, this.date);
+        if (byDate != 0) return byDate;
+        
+        return Comparator.nullsFirst(String.CASE_INSENSITIVE_ORDER).compare(this.title, other.title);
     }
 
     @Override
     public boolean equals(Object o) {
-        if (this == o) {
-            return true;
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        ResearchPaper that = (ResearchPaper) o;
+        
+        if (!this.doi.isEmpty() && !that.doi.isEmpty()) {
+            return this.doi.equalsIgnoreCase(that.doi);
         }
-        if (!(o instanceof ResearchPaper that)) {
-            return false;
-        }
-        if (doi != null && !doi.isBlank() && that.doi != null && !that.doi.isBlank()) {
-            return doi.equalsIgnoreCase(that.doi);
-        }
-        return Objects.equals(title, that.title) && Objects.equals(date, that.date);
+        return Objects.equals(this.title.toLowerCase(), that.title.toLowerCase()) && 
+               Objects.equals(this.date, that.date);
     }
 
     @Override
     public int hashCode() {
-        if (doi != null && !doi.isBlank()) {
+        if (!doi.isEmpty()) {
             return Objects.hash(doi.toLowerCase());
         }
-        return Objects.hash(title, date);
+        return Objects.hash(title.toLowerCase(), date);
     }
 
     @Override
@@ -82,55 +78,35 @@ public class ResearchPaper implements Serializable, Comparable<ResearchPaper> {
     public String getDetails() {
         String authorStr = authors.isEmpty() ? "n/a" : String.join(", ", authors);
         return String.format(
-                "%s | authors=[%s] | impact=%.2f | journal=%s | publisher=%s | doi=%s | kw=%s | cit=%d | pages=%d | date=%s",
-                title,
-                authorStr,
-                calculateImpact(),
-                journal != null ? journal : "—",
-                publisher != null ? publisher : "—",
-                doi != null ? doi : "—",
-                keywords != null ? keywords : "—",
-                citations,
-                pages,
-                date);
+                "\"%s\" | Авторы: [%s] | Journal: %s | Publisher: %s | DOI: %s | Импакт: %.2f | Цитирования: %d | Стр: %d | Дата: %s",
+                title, authorStr, journal, publisher, doi.isEmpty() ? "—" : doi,
+                calculateImpact(), citations, pages, date);
     }
 
     public String toPlainCitation() {
         String authorStr = authors.isEmpty() ? "Unknown Author" : String.join(", ", authors);
-        String journalStr = journal != null ? journal : "Unknown Journal";
-        int year = date != null ? date.getYear() : 0;
+        int year = date.getYear();
         return String.format("%s. (%d). \"%s\". %s. Поцитировано: %d раз.", 
-                authorStr, year, title, journalStr, citations);
+                authorStr, year, title, journal, citations);
     }
 
     public double calculateImpact() {
-        return citations == 0 ? 0 : (double) citations / Math.max(pages, 1);
+        return (double) citations / pages;
+    }
+
+    public void incrementCitations(int count) {
+        if (count > 0) {
+            this.citations += count;
+        }
     }
 
     public String getTitle() { return title; }
-    public void setTitle(String title) { this.title = title; }
-
     public List<String> getAuthors() { return Collections.unmodifiableList(authors); }
-    public void setAuthors(List<String> authors) { this.authors = authors != null ? new ArrayList<>(authors) : new ArrayList<>(); }
-
     public String getJournal() { return journal; }
-    public void setJournal(String journal) { this.journal = journal; }
-
     public String getPublisher() { return publisher; }
-    public void setPublisher(String publisher) { this.publisher = publisher; }
-
     public String getDoi() { return doi; }
-    public void setDoi(String doi) { this.doi = doi; }
-
     public String getKeywords() { return keywords; }
-    public void setKeywords(String keywords) { this.keywords = keywords; }
-
     public int getCitations() { return citations; }
-    public void setCitations(int citations) { this.citations = citations; }
-
     public int getPages() { return pages; }
-    public void setPages(int pages) { this.pages = pages; }
-
     public LocalDate getDate() { return date; }
-    public void setDate(LocalDate date) { this.date = date; }
 }

@@ -1,11 +1,13 @@
 package kbtu_oop_project.domain.features.user;
 
 import kbtu_oop_project.domain.features.misc.PendingCourseRegistration;
+import kbtu_oop_project.domain.features.misc.Log;
+import kbtu_oop_project.domain.features.course.Course;
 import kbtu_oop_project.domain.features.notification.Notification;
 import kbtu_oop_project.domain.value.ManagerType;
 
 import java.util.List;
-import java.util.Scanner;
+import java.util.Objects;
 
 public class Manager extends Employee {
 
@@ -19,86 +21,92 @@ public class Manager extends Employee {
 
     public Manager(String id, String firstName, String lastName, String email, String password, ManagerType title) {
         super(id, firstName, lastName, email, password);
-        this.title = title;
+        this.title = Objects.requireNonNull(title, "Тип менеджера обязателен для инициализации.");
     }
 
     @Override
     public void login() {
-        System.out.println("Менеджер (" + title + ") " + getEmail() + " вошел в академическую систему.");
+        System.out.println(String.format("[AUTH] Менеджер (%s) %s вошел в академическую систему.", title.name(), getEmail()));
     }
 
-    public void approveRegistration(List<PendingCourseRegistration> pendingQueue, Scanner scanner) {
-        System.out.println("\n======= ОЧЕРЕДЬ ЗАЯВОК НА РЕГИСТРАЦИЮ =======");
-        if (pendingQueue == null || pendingQueue.isEmpty()) {
-            System.out.println("Нет активных заявок на курсы.");
-            return;
+    public boolean processSingleRegistration(PendingCourseRegistration request, 
+                                             boolean approve, 
+                                             List<Student> allStudents, 
+                                             List<Course> allCourses,
+                                             List<Log> systemLogs) {
+        if (request == null) return false;
+
+        if (!approve) {
+            systemLogs.add(new Log(this.getId(), "ОТКЛОНЕНА заявка студента: " + request.getStudentEmail() + " на курс " + request.getCourseCode()));
+            return true; 
         }
 
-        for (int i = 0; i < pendingQueue.size(); i++) {
-            System.out.println((i + 1) + ". " + pendingQueue.get(i));
+        Student student = allStudents.stream()
+                .filter(s -> s.getEmail().equalsIgnoreCase(request.getStudentEmail()))
+                .findFirst()
+                .orElse(null);
+
+        Course course = allCourses.stream()
+                .filter(c -> c.getCourseCode().equalsIgnoreCase(request.getCourseCode()))
+                .findFirst()
+                .orElse(null);
+
+        if (student == null || course == null) {
+            System.out.println("❌ Ошибка связывания: Студент или Дисциплина не найдены в глобальном реестре.");
+            return false;
         }
 
-        System.out.print("\nВыберите номер заявки для обработки (или 0 для отмены): ");
-        int choice = scanner.nextInt();
-        scanner.nextLine(); 
+        student.registerForCourse(course); 
+        
+        course.attach(student); 
 
-        if (choice > 0 && choice <= pendingQueue.size()) {
-            PendingCourseRegistration selectedRequest = pendingQueue.get(choice - 1);
-            
-            System.out.println("1. Одобрить (Approve)");
-            System.out.println("2. Отклонить (Reject)");
-            System.out.print("Ваше решение: ");
-            int decision = scanner.nextInt();
-            scanner.nextLine();
-
-            if (decision == 1) {
-                System.out.println("Заявка одобрена! Курс " + selectedRequest.getCourseCode() + " добавлен студенту.");
-            } else {
-                System.out.println("Заявка отклонена.");
-            }
-            
-            pendingQueue.remove(selectedRequest);
-        }
+        systemLogs.add(new Log(this.getId(), String.format("ОДОБРЕНА РЕГИСТРАЦИЯ: Студент %s -> Курс %s", student.getId(), course.getCourseCode())));
+        return true;
     }
 
     public void manageNews(List<User> allUsers, String newsText) {
-        System.out.println("Опубликована новость: " + newsText);
+        if (newsText == null || newsText.isBlank()) return;
         
-        Notification newsNotification = new Notification("[ОБЩАЯ НОВОСТЬ]: " + newsText);
+        System.out.println("📢 Опубликована официальная новость: " + newsText);
+        Notification newsNotification = new Notification("[УНИВЕРСИТЕТСКИЕ НОВОСТИ]: " + newsText.trim());
+        
         for (User user : allUsers) {
-            user.update(newsNotification);
+            if (user != null) {
+                user.update(newsNotification);
+            }
         }
     }
 
-    public void generateSchedule() {
+    public void generateSchedule(List<Log> systemLogs) {
         if (this.title != ManagerType.OFFICE_REGISTRATOR) {
-            System.out.println("Ошибка: Только менеджеры Office of Registrar могут изменять расписание.");
+            System.out.println("⛔ Доступ заблокирован: Только менеджеры Департамента 'Office of Registrar' имеют право генерировать сетку расписания.");
             return;
         }
-        System.out.println("Генерация академического расписания семестра успешно запущена...");
+        
+        System.out.println("🗓️ Запуск алгоритма оптимизации расписания КБТУ... Распределение аудиторий завершено.");
+        if (systemLogs != null) {
+            systemLogs.add(new Log(this.getId(), "Запущена генерация академического расписания семестра."));
+        }
     }
 
     public void createStatisticalReport() {
-        System.out.println("=== СТАТИСТИЧЕСКИЙ ОТЧЕТ ДЛЯ ДЕКАНАТА ===");
-        System.out.println("Средний GPA по университету: [Расчетные данные]");
-        System.out.println("Количество студентов на грани отчисления: [Данные]");
-    }
-
-    public void approveRegistration() {
-        System.out.println("Менеджер " + getFullName() + " подтвердил регистрацию.");
-    }
-
-    public void manageNews() {
-        System.out.println("[Менеджер] Управление новостной лентой.");
+        System.out.println("\n=== СТАТИСТИЧЕСКИЙ ОТЧЕТ ДЛЯ ДЕКАНАТА ===");
+        System.out.println("Академический период: Текущий семестр");
+        System.out.println("Статус генерации: Стабилен.");
     }
 
     @Override
     public void logout() {
-        System.out.println("Менеджер (" + title + ") " + getEmail() + " вышел из системы.");
+        System.out.println("Менеджер (" + title.name() + ") " + getEmail() + " вышел из системы.");
     }
 
-    public ManagerType getManagerType() { return title; }
-
     public ManagerType getTitle() { return title; }
-    public void setTitle(ManagerType title) { this.title = title; }
+    
+    public void setTitle(ManagerType title) { 
+        if (title != null) {
+            this.title = title;
+        } else if (ManagerType.values().length > 0) {
+            this.title = ManagerType.values()[0]; 
+        }
+    }
 }

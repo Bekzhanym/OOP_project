@@ -9,6 +9,7 @@ import kbtu_oop_project.domain.features.research.ResearchPaper;
 import kbtu_oop_project.domain.features.research.ResearchProject;
 import kbtu_oop_project.domain.features.user.Student;
 import kbtu_oop_project.domain.features.user.Teacher;
+import kbtu_oop_project.domain.features.user.User;
 import kbtu_oop_project.domain.value.CourseType;
 import kbtu_oop_project.domain.value.LessonType;
 import kbtu_oop_project.domain.value.MessageKind;
@@ -24,10 +25,25 @@ import java.util.Scanner;
 public final class TeacherConsole {
 
     private TeacherConsole() {
+        throw new UnsupportedOperationException("Это утилитарный класс CLI Преподавателя.");
+    }
+
+    private static User extractCoreUser(User u) {
+        if (u == null) return null;
+        if (u.getClass().getSimpleName().contains("Researcher")) {
+            try {
+                var method = u.getClass().getMethod("getOriginalUser");
+                return (User) method.invoke(u);
+            } catch (Exception e) {
+                return u;
+            }
+        }
+        return u;
     }
 
     public static boolean teacherMenu(Teacher teacher, UniversityDatabase db, Scanner in) {
-        ConsoleUi.header("Панель преподавателя: " + teacher.getFirstName() + " " + teacher.getLastName());
+        User coreTeacher = extractCoreUser(teacher);
+        ConsoleUi.header("Панель преподавателя: " + coreTeacher.getFirstName() + " " + coreTeacher.getLastName());
         System.out.println("  1 — Мой профиль и курсы");
         System.out.println("  2 — Добавить научную статью (Research Paper)");
         System.out.println("  3 — Все исследователи и их статьи (сортировка)");
@@ -43,53 +59,29 @@ public final class TeacherConsole {
         System.out.println("  0 — Выйти из аккаунта");
         System.out.print("Выбор: ");
         
-        switch (ConsoleUi.trim(in.nextLine())) {
-            case "1":
-                printProfile(teacher);
-                break;
-            case "2":
-                addPaperFlow(teacher, in);
-                break;
-            case "3":
-                printSortedPapers(db, in);
-                break;
-            case "4":
-                printTopResearcher(db);
-                break;
-            case "5":
-                printTopResearcherByYear(db, in);
-                break;
-            case "6":
-                putMarksFlow(teacher, db, in);
-                break;
-            case "7":
-                printEnrolledStudents(teacher);
-                break;
-            case "8":
-                printTeacherInbox(db, teacher.getEmail());
-                break;
-            case "9":
-                sendTeacherEmployeeMail(teacher, db, in);
-                break;
-            case "10":
-                teacherResearchFlow(teacher, db, in);
-                break;
-            case "11":
-                manageCourseFlow(teacher, db, in);
-                break;
-            case "12":
-                exportGradeReportFlow(teacher, db, in);
-                break;
-            case "0":
-                return true;
-            default:
-                ConsoleUi.printlnErr("Неизвестная команда.");
-        }
-        return false;
+        String choice = ConsoleUi.trim(in.nextLine());
+        return switch (choice) {
+            case "1" -> { printProfile(teacher); yield false; }
+            case "2" -> { addPaperFlow(teacher, in); yield false; }
+            case "3" -> { printSortedPapers(db, in); yield false; }
+            case "4" -> { printTopResearcher(db); yield false; }
+            case "5" -> { printTopResearcherByYear(db, in); yield false; }
+            case "6" -> { putMarksFlow(teacher, db, in); yield false; }
+            case "7" -> { printEnrolledStudents(teacher); yield false; }
+            case "8" -> { printTeacherInbox(db, coreTeacher.getEmail()); yield false; }
+            case "9" -> { sendTeacherEmployeeMail(teacher, db, in); yield false; }
+            case "10" -> { teacherResearchFlow(teacher, db, in); yield false; }
+            case "11" -> { manageCourseFlow(teacher, db, in); yield false; }
+            case "12" -> { exportGradeReportFlow(teacher, db, in); yield false; }
+            case "0" -> true;
+            default -> { ConsoleUi.printlnErr("Неизвестная команда."); yield false; }
+        };
     }
 
     private static void printProfile(Teacher teacher) {
         ConsoleUi.header("Профиль преподавателя");
+        User core = extractCoreUser(teacher);
+        System.out.println("Преподаватель: " + core.getFirstName() + " " + core.getLastName());
         System.out.println("Кафедра: " + teacher.getDepartment());
         System.out.println("Ученое звание / Title: " + (teacher.getTitle() != null ? teacher.getTitle() : "Нет"));
         System.out.println("Индекс Хирша (h-index): " + teacher.getHIndex());
@@ -134,22 +126,28 @@ public final class TeacherConsole {
 
     private static void printTopResearcher(UniversityDatabase db) {
         db.findTopResearcherByTotalCitations().ifPresentOrElse(
-                r -> System.out.println("Топ по цитированию: "
-                        + r.getClass().getSimpleName() + " [" + r.toString() + "]"
-                        + ", Общая сумма цитирований = "
-                        + r.getPapers().stream().mapToInt(ResearchPaper::getCitations).sum()),
+                r -> {
+                    User coreR = extractCoreUser((User) r);
+                    System.out.println("Топ по цитированию: "
+                            + coreR.getFirstName() + " " + coreR.getLastName()
+                            + " | Общая сумма цитирований = "
+                            + r.getPapers().stream().mapToInt(ResearchPaper::getCitations).sum());
+                },
                 () -> ConsoleUi.printlnErr("В базе данных нет зарегистрированных исследователей."));
     }
 
     private static void printTopResearcherByYear(UniversityDatabase db, Scanner in) {
         int year = ConsoleUi.promptInt(in, "Введите год (YYYY)", 1900, 2100);
         db.findTopResearcherByCitationsInYear(year).ifPresentOrElse(
-                r -> System.out.println("Топ за " + year + " год: "
-                        + r.getClass().getSimpleName()
-                        + ", сумма цитирований за указанный год = "
-                        + r.getPapers().stream()
-                        .filter(p -> p.getDate() != null && p.getDate().getYear() == year)
-                        .mapToInt(ResearchPaper::getCitations).sum()),
+                r -> {
+                    User coreR = extractCoreUser((User) r);
+                    System.out.println("Топ за " + year + " год: "
+                            + coreR.getFirstName() + " " + coreR.getLastName()
+                            + " | сумма цитирований за указанный год = "
+                            + r.getPapers().stream()
+                            .filter(p -> p.getDate() != null && p.getDate().getYear() == year)
+                            .mapToInt(ResearchPaper::getCitations).sum());
+                },
                 () -> ConsoleUi.printlnErr("Нет подтвержденных научных публикаций за " + year + " год."));
     }
 
@@ -166,7 +164,8 @@ public final class TeacherConsole {
                 continue;
             }
             for (Student st : c.getEnrolledStudents()) {
-                System.out.println("   • ID: " + st.getStudentId() + " | " + st.getFirstName() + " " + st.getLastName());
+                User coreSt = extractCoreUser(st);
+                System.out.println("   • ID: " + st.getStudentId() + " | " + coreSt.getFirstName() + " " + coreSt.getLastName());
             }
         }
     }
@@ -221,7 +220,7 @@ public final class TeacherConsole {
         System.out.print("Выбор: ");
         
         switch (ConsoleUi.trim(in.nextLine())) {
-            case "1":
+            case "1" -> {
                 System.out.print("Научная тема проекта (Topic): ");
                 String topic = ConsoleUi.trim(in.nextLine());
                 if (topic.isEmpty()) {
@@ -232,8 +231,8 @@ public final class TeacherConsole {
                 teacher.addResearchProject(p);
                 db.registerGlobalResearchProject(p);
                 ConsoleUi.printlnOk("Проект успешно зарегистрирован и открыт для вступления (Research Group).");
-                break;
-            case "2":
+            }
+            case "2" -> {
                 ConsoleUi.header("Мои исследовательские проекты");
                 if (teacher.getResearchProjects().isEmpty()) {
                     System.out.println("(вы не курируете научные проекты)");
@@ -243,8 +242,8 @@ public final class TeacherConsole {
                     String t = rp.getTopic() != null ? rp.getTopic() : "(тема не указана)";
                     System.out.println(" • ТЕМА: " + t + " | Активных участников: " + rp.getParticipants().size());
                 }
-                break;
-            case "3":
+            }
+            case "3" -> {
                 ConsoleUi.header("Общеуниверситетский каталог проектов");
                 List<ResearchProject> globalList = db.getResearchProjectsUnmodifiable();
                 if (globalList.isEmpty()) {
@@ -256,11 +255,8 @@ public final class TeacherConsole {
                     String t = rp.getTopic() != null ? rp.getTopic() : "(без темы)";
                     System.out.println((n++) + ") " + t + " | Руководитель: " + rp.getLeaderName());
                 }
-                break;
-            case "0":
-                break;
-            default:
-                ConsoleUi.printlnErr("Неизвестная команда.");
+            }
+            default -> {}
         }
     }
 
@@ -281,9 +277,8 @@ public final class TeacherConsole {
     private static void manageCourseFlow(Teacher teacher, UniversityDatabase db, Scanner in) {
         ConsoleUi.header("Модификация параметров курса (Паттерн Observer)");
         Course c = pickTaughtCourse(teacher, in);
-        if (c == null) {
-            return;
-        }
+        if (c == null) return;
+        
         System.out.println("Текущие метаданные курса: " + c);
         System.out.print("Новое название курса (Enter — оставить прежним): ");
         String nn = ConsoleUi.trim(in.nextLine());
@@ -335,9 +330,8 @@ public final class TeacherConsole {
     private static void exportGradeReportFlow(Teacher teacher, UniversityDatabase db, Scanner in) {
         ConsoleUi.header("Генерация академической ведомости");
         Course c = pickTaughtCourse(teacher, in);
-        if (c == null) {
-            return;
-        }
+        if (c == null) return;
+        
         try {
             teacher.exportGradeReport(c);
             ConsoleUi.printlnOk("Ведомость успешно выгружена в файл / систему хранения.");
@@ -363,18 +357,23 @@ public final class TeacherConsole {
             return;
         }
 
-        Mark currentMark = student.getMarkForCourse(course).orElse(new Mark());
+        Mark existing = student.getTranscript().getMarkForCourse(course.getCourseCode());
+        Mark currentMark = existing != null ? existing : new Mark();
+        Mark updatedMark = new Mark();
+        updatedMark.setFirstAttestation(currentMark.getFirstAttestation());
+        updatedMark.setSecondAttestation(currentMark.getSecondAttestation());
+        updatedMark.setFinalExam(currentMark.getFinalExam());
 
         System.out.println("Выберите контрольную точку для изменения:");
-        System.out.println("  1 — Первая аттестация (Текущее значение: " + currentMark.getFirstAttestation() + " / 30)");
-        System.out.println("  2 — Вторая аттестация (Текущее значение: " + currentMark.getSecondAttestation() + " / 30)");
-        System.out.println("  3 — Финальный экзамен (Текущее значение: " + currentMark.getFinalExam() + " / 40)");
+        System.out.println("  1 — Первая аттестация (Текущее значение: " + updatedMark.getFirstAttestation() + " / 30)");
+        System.out.println("  2 — Вторая аттестация (Текущее значение: " + updatedMark.getSecondAttestation() + " / 30)");
+        System.out.println("  3 — Финальный экзамен (Текущее значение: " + updatedMark.getFinalExam() + " / 40)");
         System.out.print("Выбор: ");
         
         switch (ConsoleUi.trim(in.nextLine())) {
-            case "1" -> currentMark.setFirstAttestation(ConsoleUi.promptDouble(in, "Балл за 1-ю аттестацию", 0.0, 30.0));
-            case "2" -> currentMark.setSecondAttestation(ConsoleUi.promptDouble(in, "Балл за 2-ю аттестацию", 0.0, 30.0));
-            case "3" -> currentMark.setFinalExam(ConsoleUi.promptDouble(in, "Балл за Финальный экзамен", 0.0, 40.0));
+            case "1" -> updatedMark.setFirstAttestation(ConsoleUi.promptDouble(in, "Балл за 1-ю аттестацию", 0.0, 30.0));
+            case "2" -> updatedMark.setSecondAttestation(ConsoleUi.promptDouble(in, "Балл за 2-ю аттестацию", 0.0, 30.0));
+            case "3" -> updatedMark.setFinalExam(ConsoleUi.promptDouble(in, "Балл за Финальный экзамен", 0.0, 40.0));
             default -> {
                 ConsoleUi.printlnErr("Операция отменена. Баллы не изменены.");
                 return;
@@ -382,8 +381,8 @@ public final class TeacherConsole {
         }
 
         try {
-            teacher.putMark(student, course, currentMark);
-            ConsoleUi.printlnOk("Изменения внесены. Текущий совокупный балл по шкале 100: " + currentMark.calculateFinalScore());
+            teacher.putMark(student, course, updatedMark);
+            ConsoleUi.printlnOk("Изменения внесены. Текущий совокупный балл по шкале 100: " + updatedMark.calculateFinalScore());
         } catch (IllegalStateException ex) {
             ConsoleUi.printlnErr("Ошибка сохранения оценки: " + ex.getMessage());
         }

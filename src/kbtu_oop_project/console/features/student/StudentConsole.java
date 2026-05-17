@@ -7,7 +7,7 @@ import kbtu_oop_project.domain.features.user.Student;
 import kbtu_oop_project.domain.features.user.Student4thYear;
 import kbtu_oop_project.domain.features.user.Teacher;
 import kbtu_oop_project.domain.features.user.User;
-import kbtu_oop_project.domain.exception.NotAResearcherException; // Ваше кастомное исключение
+import kbtu_oop_project.domain.exception.NotAResearcherException;
 import kbtu_oop_project.infrastructure.persistence.UniversityDatabase;
 
 import java.util.ArrayList;
@@ -20,6 +20,20 @@ public final class StudentConsole {
     private static final int MAX_ECTS_LIMIT = 21;
 
     private StudentConsole() {
+        throw new UnsupportedOperationException("Это утилитарный класс для CLI Студента.");
+    }
+
+    private static User extractCoreUser(User u) {
+        if (u == null) return null;
+        if (u.getClass().getSimpleName().contains("Researcher")) {
+            try {
+                var method = u.getClass().getMethod("getOriginalUser");
+                return (User) method.invoke(u);
+            } catch (Exception e) {
+                return u;
+            }
+        }
+        return u;
     }
 
     public static boolean studentMenu(Student student, UniversityDatabase db, Scanner in) {
@@ -36,58 +50,48 @@ public final class StudentConsole {
         System.out.println("  0 — Выйти из аккаунта");
         System.out.print("Выбор: ");
         
-        switch (ConsoleUi.trim(in.nextLine())) {
-            case "1":
-                printProfile(student, db);
-                break;
-            case "2":
-                pendingEnrollmentFlow(student, db, in);
-                break;
-            case "3":
-                immediateEnrollmentFlow(student, db, in);
-                break;
-            case "4":
+        String choice = ConsoleUi.trim(in.nextLine());
+        return switch (choice) {
+            case "1" -> { printProfile(student, db); yield false; }
+            case "2" -> { pendingEnrollmentFlow(student, db, in); yield false; }
+            case "3" -> { immediateEnrollmentFlow(student, db, in); yield false; }
+            case "4" -> {
                 ConsoleUi.header("Оценки и transcript");
                 student.viewTranscript();
-                break;
-            case "5":
-                printTeachersOnCourse(db, in);
-                break;
-            case "6":
-                rateTeacherFlow(student, db, in);
-                break;
-            case "7":
-                studentResearchFlow(student, db, in);
-                break;
-            case "8":
-                printUniversityNews(db);
-                break;
-            case "9":
-                requestRecommendationFlow(student, db, in);
-                break;
-            case "0":
-                return true;
-            default:
-                ConsoleUi.printlnErr("Неизвестная команда.");
-        }
-        return false;
+                yield false;
+            }
+            case "5" -> { printTeachersOnCourse(db, in); yield false; }
+            case "6" -> { rateTeacherFlow(student, db, in); yield false; }
+            case "7" -> { studentResearchFlow(student, db, in); yield false; }
+            case "8" -> { printUniversityNews(db); yield false; }
+            case "9" -> { requestRecommendationFlow(student, db, in); yield false; }
+            case "0" -> true;
+            default -> { ConsoleUi.printlnErr("Неизвестная команда."); yield false; }
+        };
     }
 
     private static void printProfile(Student student, UniversityDatabase db) {
         ConsoleUi.header("Профиль студента");
+        
+        User core = extractCoreUser(student);
+        
         System.out.println("Student ID: " + student.getStudentId());
         System.out.println("Текущая нагрузка: " + student.getTotalCredits() + " / " + MAX_ECTS_LIMIT + " ECTS");
         System.out.println("Записан на курсов: " + student.getEnrolledCourses().size());
         
         for (Course c : student.getEnrolledCourses()) {
-            String typeInfo = c.getLessonType() != null ? " [" + c.getLessonType() + "]" : "";
+            var lessons = c.getLessons();
+            String typeInfo = !lessons.isEmpty() && lessons.get(0).getType() != null
+                    ? " [" + lessons.get(0).getType() + "]" : "";
             System.out.println("   • " + c.getCourseCode() + " — " + c.getCourseName() + " (" + c.getCredits() + " ECTS)" + typeInfo);
         }
         
-        if (student instanceof Student4thYear sy && sy.getResearchSupervisor() != null) {
+        if (core instanceof Student4thYear sy && sy.getResearchSupervisor() != null) {
             var sup = sy.getResearchSupervisor();
             System.out.println("\n[Статус: Выпускной курс / Дипломник]");
-            System.out.println("Научный руководитель: " + sup.getClass().getSimpleName() + " | Индекс Хирша (h-index): " + sup.getHIndex());
+            
+            User coreSup = extractCoreUser((User) sup);
+            System.out.println("Научный руководитель: " + coreSup.getFirstName() + " " + coreSup.getLastName() + " | h-index: " + sup.getHIndex());
         }
         
         printTeacherRatings(student, db);
@@ -152,30 +156,23 @@ public final class StudentConsole {
         System.out.println("  0 — Назад");
         System.out.print("Выбор: ");
         
-        switch (ConsoleUi.trim(in.nextLine())) {
-            case "1":
-                printProjectCatalog(db);
-                break;
-            case "2":
-                joinProjectByIndex(student, db, in);
-                break;
-            case "3":
-                findProjectByTopic(student, db, in);
-                break;
-            case "4":
+        String subChoice = ConsoleUi.trim(in.nextLine());
+        switch (subChoice) {
+            case "1" -> printProjectCatalog(db);
+            case "2" -> joinProjectByIndex(student, db, in);
+            case "3" -> findProjectByTopic(student, db, in);
+            case "4" -> {
                 ConsoleUi.header("Мои исследовательские проекты");
                 if (student.getResearchProjects().isEmpty()) {
                     System.out.println("(вы не состоите в научных группах)");
-                    break;
+                } else {
+                    for (ResearchProject p : student.getResearchProjects()) {
+                        System.out.println(" • " + safeTopic(p));
+                    }
                 }
-                for (ResearchProject p : student.getResearchProjects()) {
-                    System.out.println(" • " + safeTopic(p));
-                }
-                break;
-            case "0":
-                break;
-            default:
-                ConsoleUi.printlnErr("Неизвестная команда.");
+            }
+            case "0" -> {}
+            default -> ConsoleUi.printlnErr("Неизвестная команда.");
         }
     }
 
@@ -191,7 +188,6 @@ public final class StudentConsole {
         
         try {
             p.joinProject(student); 
-            student.addResearchProject(p);
             ConsoleUi.printlnOk("Вы успешно добавлены к проекту: " + safeTopic(p));
         } catch (NotAResearcherException ex) {
             ConsoleUi.printlnErr("Доступ запрещен: " + ex.getMessage());
@@ -214,7 +210,6 @@ public final class StudentConsole {
         ResearchProject project = hit.get();
         try {
             project.joinProject(student);
-            student.addResearchProject(project);
             ConsoleUi.printlnOk("Успешное подключение к группе: " + safeTopic(project));
         } catch (NotAResearcherException ex) {
             ConsoleUi.printlnErr("Ошибка прав доступа: " + ex.getMessage());
@@ -255,7 +250,7 @@ public final class StudentConsole {
 
     private static void printUniversityNews(UniversityDatabase db) {
         ConsoleUi.header("Новости");
-        var lines = db.getNewsLinesView();
+        List<String> lines = db.getNewsLinesView();
         if (lines.isEmpty()) {
             System.out.println("(пусто)");
             return;
@@ -270,12 +265,20 @@ public final class StudentConsole {
         System.out.print("Email преподавателя (Teacher / Professor): ");
         String em = ConsoleUi.trim(in.nextLine());
         Optional<User> tu = db.findByEmailIgnoreCase(em);
-        if (tu.isEmpty() || !(tu.get() instanceof Teacher teacher)) {
+        
+        if (tu.isEmpty()) {
             ConsoleUi.printlnErr("Преподаватель не найден.");
             return;
         }
-        student.requestRecommendation(teacher);
-        ConsoleUi.printlnOk("Запрос обработан.");
+        
+        User coreTeacher = extractCoreUser(tu.get());
+        if (!(coreTeacher instanceof Teacher teacher)) {
+            ConsoleUi.printlnErr("Указанный пользователь не является академическим преподавателем.");
+            return;
+        }
+        
+        teacher.writeRecommendation(student, null);
+        ConsoleUi.printlnOk("Рекомендательное письмо успешно запрошено и оформлено.");
     }
 
     private static void printTeachersOnCourse(UniversityDatabase db, Scanner in) {
@@ -288,8 +291,9 @@ public final class StudentConsole {
                 return;
             }
             for (Teacher t : c.getInstructors()) {
-                System.out.println(" • " + t.getFirstName() + " " + t.getLastName()
-                        + " | " + t.getEmail()
+                User coreT = extractCoreUser(t);
+                System.out.println(" • " + coreT.getFirstName() + " " + coreT.getLastName()
+                        + " | " + coreT.getEmail()
                         + " | title=" + (t.getTitle() != null ? t.getTitle().name() : "—"));
             }
         }, () -> ConsoleUi.printlnErr("Курс не найден."));
@@ -304,10 +308,18 @@ public final class StudentConsole {
             return;
         }
         Optional<User> tu = db.findByEmailIgnoreCase(em);
-        if (tu.isEmpty() || !(tu.get() instanceof Teacher teacher)) {
+        
+        if (tu.isEmpty()) {
             ConsoleUi.printlnErr("Преподаватель с таким email не найден.");
             return;
         }
+        
+        User coreT = extractCoreUser(tu.get());
+        if (!(coreT instanceof Teacher teacher)) {
+            ConsoleUi.printlnErr("Оценивать можно только сотрудников профессорско-преподавательского состава.");
+            return;
+        }
+        
         int stars = ConsoleUi.promptInt(in, "Звёзды (1–5)", 1, 5);
         try {
             student.rateTeacher(teacher, stars);

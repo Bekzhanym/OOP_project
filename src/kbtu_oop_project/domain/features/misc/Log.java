@@ -1,43 +1,60 @@
 package kbtu_oop_project.domain.features.misc;
 
 import java.io.Serializable;
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 
-public class Log implements Serializable {
+public final class Log implements Serializable {
 
     private static final long serialVersionUID = 1L;
     
-    private LocalDateTime timestamp;
-    private String action;
-    private String userId;
-
-    public Log() {
-    }
+    private final long timestampMillis;
+    private final String action;
+    private final String userId;
 
     public Log(String userId, String action) {
-        this.userId = userId;
-        this.action = action;
-        this.timestamp = LocalDateTime.now(); // Автоматическая фиксация времени
+        if (userId == null || userId.isBlank()) {
+            this.userId = "SYSTEM/ANONYMOUS";
+        } else {
+            this.userId = userId.trim();
+        }
+        
+        if (action == null || action.isBlank()) {
+            throw new IllegalArgumentException("Описание действия для лога не может быть пустым.");
+        }
+        
+        this.action = action.trim();
+        this.timestampMillis = System.currentTimeMillis(); 
+    }
+
+    public LocalDateTime getTimestamp() {
+        return LocalDateTime.ofInstant(
+                Instant.ofEpochMilli(timestampMillis), 
+                ZoneId.systemDefault()
+        );
     }
 
     public String getFormattedTimestamp() {
-        if (timestamp == null) return "N/A";
-        return timestamp.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+        return getTimestamp().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
     }
 
     @Override
     public String toString() {
-        return String.format("[%s] [User ID: %s] — Действие: %s", 
+        return String.format("[%s] [Инициатор ID: %s] — Действие: %s", 
                 getFormattedTimestamp(), userId, action);
     }
 
-    public LocalDateTime getTimestamp() { return timestamp; }
-    public void setTimestamp(LocalDateTime timestamp) { this.timestamp = timestamp; }
+    public long getTimestampMillis() { 
+        return timestampMillis; 
+    }
 
-    public String getAction() { return action; }
-    public void setAction(String action) { this.action = action; }
+    public String getAction() { 
+        return action; 
+    }
 
-    public String getUserId() { return userId; }
-    public void setUserId(String userId) { this.userId = userId; }
+    public String getUserId() { 
+        return userId; 
+    }
 }

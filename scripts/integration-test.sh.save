@@ -22,13 +22,14 @@ trap restore_state EXIT
 if [[ -f "$SER" ]]; then
   cp "$SER" "$TMP_SER"
   echo "[integration-test] Резервная копия: $TMP_SER"
-fi
+fi}
+  
 rm -f "$SER"
 
 echo "[integration-test] Компиляция..."
-find src -name "*.java" -print0 | xargs -0 javac --enable-preview --source 17 -d out -encoding UTF-8
+find src -name "*.java" -print0 | xargs -0 javac -d out -encoding UTF-8
 
-JAVA_RUN=(java --enable-preview -cp out kbtu_oop_project.console.ConsoleDemo)
+JAVA_RUN=(java -cp out kbtu_oop_project.console.ConsoleDemo)
 
 echo "[integration-test] Фаза A — создаём пользователей, курс, оценки, новость, сохранение..."
 PHASE_A_OUTPUT="$(mktemp)"
@@ -46,6 +47,7 @@ adm123
 2
 2
 teach@kbtu.kz
+
 t1
 Tea
 Cher
@@ -56,10 +58,12 @@ CS
 2
 1
 stud@kbtu.kz
+
 s1
 Stu
 Dent
 stu123
+
 0
 2
 5
@@ -71,6 +75,7 @@ mgr123
 0
 1
 mgr@kbtu.kz
+
 mgr123
 7
 INT101
@@ -112,10 +117,10 @@ INT101
 Integration research project
 0
 1
-stud@kbtu.kz
+stud@int.test
 stu123
 6
-teach@kbtu.kz
+teach@int.test
 5
 7
 2
@@ -123,7 +128,7 @@ teach@kbtu.kz
 4
 0
 1
-admin@kbtu.kz
+admin@int.test
 adm123
 4
 0
@@ -140,13 +145,13 @@ run_phase_b() {
   cat <<'INPUT'
 y
 1
-stud@kbtu.kz
+stud@int.test
 stu123
 1
 4
 0
 1
-teach@kbtu.kz
+teach@int.test
 tea123
 7
 0
@@ -165,8 +170,9 @@ cat "$PHASE_A_OUTPUT" "$PHASE_B_OUTPUT" >"$MERGED"
 checks=(
   "INT101"
   "Persistence line from integration test"
-  "успешно восстановлена"
-  "Оценка успешно сохранена"
+  "[OK] Данные загружены"
+  "Запись успешна"
+  "Оценка сохранена"
   "Integration research project"
 )
 

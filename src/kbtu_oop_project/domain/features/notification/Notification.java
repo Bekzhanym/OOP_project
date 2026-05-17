@@ -1,44 +1,62 @@
 package kbtu_oop_project.domain.features.notification;
 
 import java.io.Serializable;
-import java.time.LocalDate;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 
-public class Notification implements Serializable {
+public final class Notification implements Serializable {
 
     private static final long serialVersionUID = 1L;
-    private String message;
-    private LocalDate date;
-    private boolean read;
+    
+    private final String message;
+    private final long timestampMillis;
+    private boolean isRead;
 
     public Notification(String message) {
         if (message == null || message.isBlank()) {
             throw new IllegalArgumentException("Текст уведомления не может быть пустым");
         }
-        this.message = message;
-        this.date = LocalDate.now();
-        this.read = false;
+        this.message = message.trim();
+        this.timestampMillis = System.currentTimeMillis(); 
+        this.isRead = false;
     }
 
-    public Notification(String message, LocalDate date, boolean read) {
+    public Notification(String message, long timestampMillis, boolean isRead) {
         this.message = message;
-        this.date = date != null ? date : LocalDate.now();
-        this.read = read;
+        this.timestampMillis = timestampMillis;
+        this.isRead = isRead;
+    }
+
+    public void markAsRead() {
+        this.isRead = true;
+    }
+
+    public String getFormattedTimestamp() {
+        LocalDateTime dateTime = LocalDateTime.ofInstant(
+                Instant.ofEpochMilli(timestampMillis), 
+                ZoneId.systemDefault()
+        );
+        return dateTime.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
     }
 
     @Override
     public String toString() {
-        String status = read ? "[Прочитано]" : "[НОВОЕ] *";
-        String formattedDate = date.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
-        return String.format("%s (%s): %s", status, formattedDate, message);
+        String status = isRead ? "[Прочитано]" : "[НОВОЕ] 🟢";
+        return String.format("%s (%s): %s", status, getFormattedTimestamp(), message);
     }
 
-    public String getMessage() { return message; }
-    public void setMessage(String message) { this.message = message; }
+    
+    public String getMessage() { 
+        return message; 
+    }
 
-    public LocalDate getDate() { return date; }
-    public void setDate(LocalDate date) { this.date = date; }
+    public long getTimestampMillis() { 
+        return timestampMillis; 
+    }
 
-    public boolean isRead() { return read; }
-    public void setRead(boolean read) { this.read = read; }
+    public boolean isRead() { 
+        return isRead; 
+    }
 }

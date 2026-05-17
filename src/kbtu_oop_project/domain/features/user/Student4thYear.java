@@ -20,14 +20,19 @@ public class Student4thYear extends Student {
 
     public void setSupervisor(Researcher supervisor) {
         if (supervisor == null) {
-            throw new IllegalArgumentException("Supervisor cannot be null");
+            throw new IllegalArgumentException("Научный руководитель не может быть null.");
         }
+        
+        
         if (supervisor.getHIndex() < SupervisorQualificationException.minimumRequired()) {
-            String msg = "Supervisor h-index must be >= " + SupervisorQualificationException.minimumRequired()
-                    + " (given: " + supervisor.getHIndex() + ")";
-            throw new SupervisorQualificationException(msg);
+            
+            User supervisorUser = (supervisor instanceof User u) ? u : null;
+            
+            throw SupervisorQualificationException.belowMinimum(supervisorUser, supervisor.getHIndex());
         }
+        
         this.researchSupervisor = supervisor;
+        System.out.println("✅ Научный руководитель успешно утвержден для выпускника: " + this.getFirstName());
     }
 
     public Researcher getResearchSupervisor() {
@@ -37,21 +42,25 @@ public class Student4thYear extends Student {
     @Override
     public String toString() {
         String supervisorInfo = "Не назначен";
+        
         if (researchSupervisor != null) {
-            if (researchSupervisor instanceof User) {
-                supervisorInfo = ((User) researchSupervisor).getFullName() + " (h-index: " + researchSupervisor.getHIndex() + ")";
-            } else {
-                supervisorInfo = "Researcher (h-index: " + researchSupervisor.getHIndex() + ")";
+            String name = "Научный сотрудник";
+            
+            if (researchSupervisor instanceof User userSupervisor) {
+                name = userSupervisor.getFullName();
             }
+            
+            supervisorInfo = String.format("%s [h-index: %d]", name, researchSupervisor.getHIndex());
         }
 
         return String.format(
-                "=== ВЫПУСКНИК (4 КУРС) ===\n" +
-                "ФИО: %s\n" +
-                "ID: %s | Email: %s\n" +
-                "Научный руководитель: %s\n" +
-                "=========================",
-                getFullName(), getStudentId(), getEmail(), supervisorInfo
+                "\n🎓 === ВЫПУСКНИК КБТУ (4 КУРС) ===\n" +
+                " ФИО: %s\n" +
+                " ID: %s | Email: %s\n" +
+                " Специальность: %s\n" +
+                " Научный руководитель: %s\n" +
+                "==================================",
+                getFullName(), getStudentId(), getEmail(), getMajor(), supervisorInfo
         );
     }
 }

@@ -15,8 +15,10 @@ public class ResearchProject implements Serializable {
 
     private String topic;
     private String leaderName;
+    
     private final List<ResearchPaper> publishedPapers = new ArrayList<>();
-    private final List<Researcher> participants = new ArrayList<>();
+    
+    private final List<User> participants = new ArrayList<>();
 
     public ResearchProject() {
     }
@@ -28,30 +30,37 @@ public class ResearchProject implements Serializable {
         this.topic = topic.trim();
     }
 
-    public ResearchProject(String topic, Researcher leader) {
-        if (topic == null || topic.isBlank()) {
-            throw new IllegalArgumentException("Тема исследовательского проекта не может быть пустой");
-        }
-        this.topic = topic.trim();
+    public ResearchProject(String topic, User leader) {
+        this(topic);
         if (leader != null) {
-            participants.add(leader);
-            if (leader instanceof User u) {
-                this.leaderName = u.getFullName();
+            if (!isUserResearcher(leader)) {
+                throw new NotAResearcherException("Лидер проекта должен иметь статус исследователя!");
             }
+            this.participants.add(leader);
+            this.leaderName = leader.getFullName();
         }
     }
 
+    private boolean isUserResearcher(User user) {
+        return user instanceof Researcher;
+    }
+
     public void addParticipant(User user) {
-        if (!(user instanceof Researcher researcher)) {
+        if (user == null) return;
+        
+        if (!isUserResearcher(user)) {
             throw new NonResearcherParticipantException(user);
         }
-        if (!participants.contains(researcher)) {
-            participants.add(researcher);
+        
+        if (!participants.contains(user)) {
+            participants.add(user);
         }
     }
 
     public void joinProject(User user) {
-        if (!(user instanceof Researcher)) {
+        if (user == null) return;
+        
+        if (!isUserResearcher(user)) {
             throw new NotAResearcherException("User " + user.getEmail() + " is not a Researcher.");
         }
         addParticipant(user);
@@ -68,18 +77,17 @@ public class ResearchProject implements Serializable {
         StringBuilder sb = new StringBuilder();
         sb.append("========================================\n");
         sb.append("НАУЧНЫЙ ПРОЕКТ: ").append(topic).append("\n");
+        sb.append("Руководитель: ").append(getLeaderName()).append("\n");
         sb.append("========================================\n");
 
-        sb.append("Участники (Researchers):\n");
+        sb.append("Участники проекта:\n");
         if (participants.isEmpty()) {
             sb.append("  — Нет участников\n");
         } else {
-            for (Researcher r : participants) {
-                if (r instanceof User u) {
-                    sb.append(String.format("  • %s (%s) [h-index: %d]\n", u.getFullName(), u.getEmail(), r.getHIndex()));
-                } else {
-                    sb.append(String.format("  • Исследователь [h-index: %d]\n", r.getHIndex()));
-                }
+            for (User u : participants) {
+                sb.append(String.format("  • %s (%s) [Роль: %s | h-index: %d]\n",
+                        u.getFullName(), u.getEmail(), u.getUserRole(),
+                        (u instanceof Researcher r ? r.getHIndex() : 0)));
             }
         }
 
@@ -88,7 +96,9 @@ public class ResearchProject implements Serializable {
             sb.append("  — Нет публикаций по данному проекту\n");
         } else {
             for (ResearchPaper paper : publishedPapers) {
-                sb.append("  • ").append(paper.getTitle()).append(" (DOI: ").append(paper.getDoi()).append(")\n");
+                sb.append("  • ").append(paper.getTitle())
+                  .append(paper.getDoi().isEmpty() ? "" : " (DOI: " + paper.getDoi() + ")")
+                  .append("\n");
             }
         }
         sb.append("----------------------------------------");
@@ -99,7 +109,13 @@ public class ResearchProject implements Serializable {
     public void setTopic(String topic) { this.topic = topic; }
 
     public String getLeaderName() { return leaderName != null ? leaderName : "—"; }
+    public void setLeaderName(String leaderName) { this.leaderName = leaderName; }
 
-    public List<ResearchPaper> getPublishedPapers() { return Collections.unmodifiableList(publishedPapers); }
-    public List<Researcher> getParticipants() { return Collections.unmodifiableList(participants); }
+    public List<ResearchPaper> getPublishedPapers() { 
+        return Collections.unmodifiableList(publishedPapers); 
+    }
+    
+    public List<User> getParticipants() { 
+        return Collections.unmodifiableList(participants); 
+    }
 }

@@ -10,17 +10,21 @@ import java.util.Objects;
 public class Lesson implements Serializable {
 
     private static final long serialVersionUID = 1L;
+    
     private DayOfWeek day;
     private LocalTime startTime;
     private LocalTime endTime;
     private LessonType type;
 
-    public Lesson() {}
+    public Lesson() {
+        this.day = DayOfWeek.MONDAY;
+        this.startTime = LocalTime.of(9, 0);
+        this.endTime = LocalTime.of(9, 50);
+        this.type = LessonType.LECTURE;
+    }
 
     public Lesson(DayOfWeek day, LocalTime startTime, LocalTime endTime, LessonType type) {
-        if (startTime != null && endTime != null && startTime.isAfter(endTime)) {
-            throw new IllegalArgumentException("Start time cannot be after end time");
-        }
+        validateTimes(startTime, endTime);
         this.day = day;
         this.startTime = startTime;
         this.endTime = endTime;
@@ -31,7 +35,23 @@ public class Lesson implements Serializable {
         if (other == null || this.day != other.day) {
             return false;
         }
-        return !this.startTime.isAfter(other.endTime) && !other.startTime.isAfter(this.endTime);
+        return this.startTime.isBefore(other.endTime) && other.startTime.isBefore(this.endTime);
+    }
+
+    public void setTimeSlot(LocalTime startTime, LocalTime endTime) {
+        validateTimes(startTime, endTime);
+        this.startTime = startTime;
+        this.endTime = endTime;
+    }
+
+    private void validateTimes(LocalTime start, LocalTime end) {
+        if (start == null || end == null) {
+            throw new IllegalArgumentException("Время начала и окончания не могут быть null.");
+        }
+        if (!start.isBefore(end)) {
+            throw new IllegalArgumentException("Ошибка интервала: время начала (" + start 
+                    + ") должно быть строго раньше времени окончания (" + end + ").");
+        }
     }
 
     @Override
@@ -52,18 +72,29 @@ public class Lesson implements Serializable {
 
     @Override
     public String toString() {
-        String typeStr = (type != null) ? type.toString() : "LESSON";
-        return String.format("[%s] %s: %s - %s", day, typeStr, startTime, endTime);
+        String typeStr = (type != null) ? type.name() : "LESSON";
+        return String.format("[%s | %s] %s - %s", day, typeStr, startTime, endTime);
     }
 
+    
     public DayOfWeek getDay() { return day; }
     public void setDay(DayOfWeek day) { this.day = day; }
 
     public LocalTime getStartTime() { return startTime; }
-    public void setStartTime(LocalTime startTime) { this.startTime = startTime; }
+    
+    @Deprecated
+    public void setStartTime(LocalTime startTime) {
+        validateTimes(startTime, this.endTime);
+        this.startTime = startTime;
+    }
 
     public LocalTime getEndTime() { return endTime; }
-    public void setEndTime(LocalTime endTime) { this.endTime = endTime; }
+    
+    @Deprecated
+    public void setEndTime(LocalTime endTime) {
+        validateTimes(this.startTime, endTime);
+        this.endTime = endTime;
+    }
 
     public LessonType getType() { return type; }
     public void setType(LessonType type) { this.type = type; }

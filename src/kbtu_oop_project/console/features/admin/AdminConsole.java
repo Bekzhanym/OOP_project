@@ -5,13 +5,11 @@ import kbtu_oop_project.console.features.user.UserRoleFormatter;
 import kbtu_oop_project.domain.exception.SupervisorQualificationException;
 import kbtu_oop_project.domain.features.course.Course;
 import kbtu_oop_project.domain.features.misc.Log;
-import kbtu_oop_project.domain.features.research.Researcher;
 import kbtu_oop_project.domain.features.user.Student;
 import kbtu_oop_project.domain.features.user.Student4thYear;
+import kbtu_oop_project.domain.features.user.Teacher;
 import kbtu_oop_project.domain.features.user.User;
 import kbtu_oop_project.infrastructure.persistence.UniversityDatabase;
-
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.Scanner;
@@ -50,117 +48,120 @@ public final class AdminConsole {
 
     private static void handleMenuChoice(String choice, User adminSelf, UniversityDatabase db, Scanner in) {
         switch (choice) {
-            case "1":
-                ConsoleUi.header("Список пользователей университета");
-                for (User u : db.getUsers()) {
-                    System.out.println(" • ID: " + u.getId() + " | Роль: " + UserRoleFormatter.describe(u)
-                            + " | Email: " + u.getEmail());
-                }
-                break;
-                
-            case "2":
-                ConsoleUi.header("Доступные курсы");
-                for (Course c : db.getCourses()) {
-                    String lessonInfo = (c.getLesson() != null && c.getLesson().getType() != null) 
-                            ? c.getLesson().getType().name() : "—";
-                            
-                    System.out.println(" • " + c.getCourseCode() + " — " + c.getCourseName()
-                            + " (" + c.getCredits() + " cr)"
-                            + " | Тип: " + c.getCourseType()
-                            + " | Специальность: " + (c.getIntendedMajor() != null ? c.getIntendedMajor() : "Все")
-                            + ", Курс: " + (c.getIntendedYearOfStudy() > 0 ? c.getIntendedYearOfStudy() : "Все")
-                            + " | Занятие: " + lessonInfo);
-                }
-                break;
-                
-            case "3":
-                String rx = ConsoleUi.promptRequired(in, "Введите регулярное выражение (Java Regex)");
-                try {
-                    List<Object> hits = db.advancedSearch(rx);
-                    ConsoleUi.header("Результаты поиска по шаблону (" + hits.size() + ")");
-                    for (Object o : hits) {
-                        System.out.println(" • " + o);
-                    }
-                } catch (Exception ex) {
-                    ConsoleUi.printlnErr("Ошибка в синтаксисе регулярного выражения: " + ex.getMessage());
-                }
-                break;
-                
-            case "4":
-                db.saveData();
-                ConsoleUi.printlnOk("Состояние системы успешно сериализовано в файлы данных.");
-                break;
-                
-            case "5":
-                String delEmail = ConsoleUi.promptRequired(in, "Email пользователя для удаления");
-                Optional<User> victim = db.findByEmailIgnoreCase(delEmail);
-                if (victim.isEmpty()) {
-                    ConsoleUi.printlnErr("Пользователь с таким email не найден.");
-                    break;
-                }
-                User toRemove = victim.get();
-                if (sameEmail(adminSelf, toRemove)) {
-                    ConsoleUi.printlnErr("Критическая ошибка: невозможно удалить собственный активный аккаунт.");
-                    break;
-                }
-                if (db.removeUser(toRemove)) {
-                    ConsoleUi.printlnOk("Пользователь успешно удалён из базы данных.");
-                } else {
-                    ConsoleUi.printlnErr("Не удалось выполнить удаление.");
-                }
-                break;
-                
-            case "6":
-                String courseCode = ConsoleUi.promptRequired(in, "Код курса для удаления (например, CS101)");
-                if (db.removeCourseByCode(courseCode)) {
-                    ConsoleUi.printlnOk("Курс успешно удалён.");
-                } else {
-                    ConsoleUi.printlnErr("Курс с кодом '" + courseCode + "' не найден.");
-                }
-                break;
-                
-            case "7":
-                ConsoleUi.header("Текстовый журнал аудита (Последние 40 записей)");
-                List<String> lines = db.getLogLines();
-                int from = Math.max(0, lines.size() - 40);
-                for (int i = from; i < lines.size(); i++) {
-                    System.out.println(lines.get(i));
-                }
-                
-                ConsoleUi.header("Структурированные объекты логов (Log Objects)");
-                for (Log lg : db.getLogs()) {
-                    System.out.println("[" + lg.getTimestamp() + "] Действие: " + lg.getAction()
-                            + " | Инициатор ID: " + lg.getUserId());
-                }
-                break;
-                
-            case "8":
-                String pwdEmail = ConsoleUi.promptRequired(in, "Email целевого пользователя");
-                Optional<User> pwdUser = db.findByEmailIgnoreCase(pwdEmail);
-                if (pwdUser.isEmpty()) {
-                    ConsoleUi.printlnErr("Пользователь не найден.");
-                    break;
-                }
-                String np = ConsoleUi.promptRequired(in, "Введите новый пароль");
-                pwdUser.get().changePassword(np);
-                
-                db.recordAudit("ADMIN_PASSWORD_RESET " + pwdEmail.trim());
-                Log lg = new Log();
-                lg.setAction("admin_password_reset");
-                lg.setUserId(pwdUser.get().getId());
-                lg.setTimestamp(LocalDateTime.now());
-                db.recordStructured(lg);
-                
-                ConsoleUi.printlnOk("Пароль успешно принудительно изменён.");
-                break;
-                
-            case "9":
-                assignFourthYearSupervisorFlow(db, in);
-                break;
-                
-            default:
-                ConsoleUi.printlnErr("Неизвестная команда. Повторите ввод.");
+            case "1" -> showUsersFlow(db);
+            case "2" -> showCoursesFlow(db);
+            case "3" -> regexSearchFlow(db, in);
+            case "4" -> saveDataFlow(db);
+            case "5" -> removeUserFlow(adminSelf, db, in);
+            case "6" -> removeCourseFlow(db, in);
+            case "7" -> showAuditLogsFlow(db);
+            case "8" -> resetPasswordFlow(db, in);
+            case "9" -> assignFourthYearSupervisorFlow(db, in);
+            default -> ConsoleUi.printlnErr("Неизвестная команда. Повторите ввод.");
         }
+    }
+
+    private static void showUsersFlow(UniversityDatabase db) {
+        ConsoleUi.header("Список пользователей университета");
+        for (User u : db.findAllUsers()) {
+            System.out.println(" • ID: " + u.getId() + " | Роль: " + UserRoleFormatter.describe(u)
+                    + " | Email: " + u.getEmail());
+        }
+    }
+
+    private static void showCoursesFlow(UniversityDatabase db) {
+        ConsoleUi.header("Доступные курсы");
+        for (Course c : db.findAllCourses()) {
+            var lessons = c.getLessons();
+            String lessonInfo = (!lessons.isEmpty() && lessons.get(0).getType() != null)
+                    ? lessons.get(0).getType().name() : "—";
+
+            System.out.println(" • " + c.getCourseCode() + " — " + c.getCourseName()
+                    + " (" + c.getCredits() + " cr)"
+                    + " | Тип: " + c.getCourseType()
+                    + " | Специальность: " + (c.getIntendedMajor() != null ? c.getIntendedMajor() : "Все")
+                    + ", Курс: " + (c.getIntendedYearOfStudy() > 0 ? c.getIntendedYearOfStudy() : "Все")
+                    + " | Занятие: " + lessonInfo);
+        }
+    }
+
+    private static void regexSearchFlow(UniversityDatabase db, Scanner in) {
+        String rx = ConsoleUi.promptRequired(in, "Введите регулярное выражение (Java Regex)");
+        try {
+            List<Object> hits = db.advancedSearch(rx);
+            ConsoleUi.header("Результаты поиска по шаблону (" + hits.size() + ")");
+            for (Object o : hits) {
+                System.out.println(" • " + o);
+            }
+        } catch (Exception ex) {
+            ConsoleUi.printlnErr("Ошибка в синтаксисе регулярного выражения: " + ex.getMessage());
+        }
+    }
+
+    private static void saveDataFlow(UniversityDatabase db) {
+        db.saveData();
+        ConsoleUi.printlnOk("Состояние системы успешно сериализовано в файлы данных.");
+    }
+
+    private static void removeUserFlow(User adminSelf, UniversityDatabase db, Scanner in) {
+        String delEmail = ConsoleUi.promptRequired(in, "Email пользователя для удаления");
+        Optional<User> victim = db.findByEmailIgnoreCase(delEmail);
+        if (victim.isEmpty()) {
+            ConsoleUi.printlnErr("Пользователь с таким email не найден.");
+            return;
+        }
+        User toRemove = victim.get();
+        if (sameEmail(adminSelf, toRemove)) {
+            ConsoleUi.printlnErr("Критическая ошибка: невозможно удалить собственный активный аккаунт.");
+            return;
+        }
+        if (db.removeUser(toRemove)) {
+            ConsoleUi.printlnOk("Пользователь успешно удалён из базы данных.");
+        } else {
+            ConsoleUi.printlnErr("Не удалось выполнить удаление.");
+        }
+    }
+
+    private static void removeCourseFlow(UniversityDatabase db, Scanner in) {
+        String courseCode = ConsoleUi.promptRequired(in, "Код курса для удаления (например, CS101)");
+        if (db.removeCourseByCode(courseCode)) {
+            ConsoleUi.printlnOk("Курс успешно удалён.");
+        } else {
+            ConsoleUi.printlnErr("Курс с кодом '" + courseCode + "' не найден.");
+        }
+    }
+
+    private static void showAuditLogsFlow(UniversityDatabase db) {
+        ConsoleUi.header("Текстовый журнал аудита (Последние 40 записей)");
+        List<String> lines = db.getLogLines();
+        int from = Math.max(0, lines.size() - 40);
+        for (int i = from; i < lines.size(); i++) {
+            System.out.println(lines.get(i));
+        }
+        
+        ConsoleUi.header("Структурированные объекты логов (Log Objects)");
+        for (Log lg : db.getLogs()) {
+            System.out.println("[" + lg.getTimestamp() + "] Действие: " + lg.getAction()
+                    + " | Инициатор ID: " + lg.getUserId());
+        }
+    }
+
+    private static void resetPasswordFlow(UniversityDatabase db, Scanner in) {
+        String pwdEmail = ConsoleUi.promptRequired(in, "Email целевого пользователя");
+        Optional<User> pwdUser = db.findByEmailIgnoreCase(pwdEmail);
+        if (pwdUser.isEmpty()) {
+            ConsoleUi.printlnErr("Пользователь не найден.");
+            return;
+        }
+        String np = ConsoleUi.promptRequired(in, "Введите новый пароль");
+        
+        User user = pwdUser.get();
+        user.forceResetPassword(np);
+
+        db.recordStructured(new Log(user.getId(), "admin_password_reset"));
+        db.recordAudit("ADMIN_PASSWORD_RESET " + pwdEmail.trim());
+        
+        ConsoleUi.printlnOk("Пароль успешно принудительно изменён.");
     }
 
     private static void assignFourthYearSupervisorFlow(UniversityDatabase db, Scanner in) {
@@ -176,23 +177,28 @@ public final class AdminConsole {
         String svEmail = ConsoleUi.promptRequired(in, "Email научного руководителя");
         Optional<User> sv = db.findByEmailIgnoreCase(svEmail);
         
-        if (sv.isEmpty() || !(sv.get() instanceof Researcher svResearcher)) {
-            ConsoleUi.printlnErr("Ошибка: Выбранный руководитель не зарегистрирован как Исследователь (Researcher).");
+        if (sv.isEmpty() || !(sv.get() instanceof Teacher)) {
+            ConsoleUi.printlnErr("Ошибка: Выбранный руководитель не является преподавателем с профилем исследователя.");
             return;
         }
 
-        if (!(su.get() instanceof Student4thYear student4) ) {
-            ConsoleUi.printlnErr("Ошибка: студент не является студентом 4 курса (Student4thYear).");
+        Teacher supervisor = (Teacher) sv.get();
+
+        if (!(student instanceof Student4thYear fourthYear)) {
+            ConsoleUi.printlnErr("Ошибка: Студент не зарегистрирован как студент 4 курса.");
             return;
         }
 
         try {
-            student4.setSupervisor(svResearcher);
-            ConsoleUi.printlnOk("Руководитель успешно назначен! Подтвержденный h-index: "
-                    + svResearcher.getHIndex());
+            fourthYear.setSupervisor(supervisor);
+
+            ConsoleUi.printlnOk("Руководитель успешно назначен! Подтвержденный h-index: " + supervisor.getHIndex());
+
+            db.recordStructured(new Log(student.getId(), "supervisor_assigned"));
             db.recordAudit("SUPERVISOR_SET " + stEmail + " → " + svEmail);
+            
         } catch (SupervisorQualificationException ex) {
-            ConsoleUi.printlnErr("Отклонено системой: " + ex.getMessage());
+            ConsoleUi.printlnErr("Отклонено академической системой КБТУ: " + ex.getMessage());
         }
     }
 

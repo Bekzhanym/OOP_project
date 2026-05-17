@@ -19,14 +19,25 @@ import kbtu_oop_project.infrastructure.persistence.UniversityDatabase;
 import java.time.DayOfWeek;
 import java.time.LocalTime;
 import java.util.*;
-import java.util.Optional;
 
 public final class ManagerConsole {
 
     private ManagerConsole() {}
 
+    private static User extractCoreUser(User u) {
+        if (u.getClass().getSimpleName().contains("Researcher")) {
+            try {
+                var method = u.getClass().getMethod("getOriginalUser");
+                return (User) method.invoke(u);
+            } catch (Exception e) {
+                return u;
+            }
+        }
+        return u;
+    }
+
     public static boolean managerMenu(Manager manager, UniversityDatabase db, Scanner in) {
-        ConsoleUi.header("Панель менеджера | Тип: " + manager.getManagerType());
+        ConsoleUi.header("Панель менеджера | Тип: " + manager.getTitle());
         System.out.println("  1 — Статистика по оценкам (Генерация отчёта)");
         System.out.println("  2 — Студенты по среднему GPA (Transcript)");
         System.out.println("  3 — Назначить преподавателя на курс");
@@ -38,37 +49,19 @@ public final class ManagerConsole {
         System.out.println("  0 — Выйти из аккаунта");
         System.out.print("Выбор: ");
         
-        switch (ConsoleUi.trim(in.nextLine())) {
-            case "1":
-                printMarksReport(manager, db); // Передаем менеджера для логирования действия
-                break;
-            case "2":
-                printStudentsByTranscriptGpa(db);
-                break;
-            case "3":
-                assignInstructorFlow(db, in);
-                break;
-            case "4":
-                pendingRegistrationFlow(manager, db, in);
-                break;
-            case "5":
-                printDeanSignedRequests(db);
-                break;
-            case "6":
-                printTeachersAlphabeticalWithRatings(db);
-                break;
-            case "7":
-                createCourseCatalogEntry(manager, db, in);
-                break;
-            case "8":
-                universityNewsFlow(manager, db, in);
-                break;
-            case "0":
-                return true;
-            default:
-                ConsoleUi.printlnErr("Неизвестная команда.");
-        }
-        return false;
+        String choice = ConsoleUi.trim(in.nextLine());
+        return switch (choice) {
+            case "1" -> { printMarksReport(manager, db); yield false; }
+            case "2" -> { printStudentsByTranscriptGpa(db); yield false; }
+            case "3" -> { assignInstructorFlow(db, in); yield false; }
+            case "4" -> { pendingRegistrationFlow(manager, db, in); yield false; }
+            case "5" -> { printDeanSignedRequests(db); yield false; }
+            case "6" -> { printTeachersAlphabeticalWithRatings(db); yield false; }
+            case "7" -> { createCourseCatalogEntry(manager, db, in); yield false; }
+            case "8" -> { universityNewsFlow(manager, db, in); yield false; }
+            case "0" -> true;
+            default -> { ConsoleUi.printlnErr("Неизвестная команда."); yield false; }
+        };
     }
 
     private static void pendingRegistrationFlow(Manager manager, UniversityDatabase db, Scanner in) {
@@ -79,8 +72,7 @@ public final class ManagerConsole {
             return;
         }
 
-        // Ограничение: Утверждать регистрацию по ТЗ имеет право только Office of Registrar (OR)
-        if (manager.getManagerType() != ManagerType.OFFICE_REGISTRATOR) {
+        if (manager.getTitle() != ManagerType.OFFICE_REGISTRATOR) {
             ConsoleUi.printlnErr("Предупреждение: Согласно регламенту, утверждать регистрацию может только менеджер OR.");
             System.out.print("Продолжить операцию вопреки ограничениям? (y/n): ");
             if (!"y".equalsIgnoreCase(ConsoleUi.trim(in.nextLine()))) return;
@@ -120,20 +112,18 @@ public final class ManagerConsole {
         String code = pend.getCourseCode();
 
         if (cmd == 'a') {
-            // Перехватываем бизнес-исключения (например, превышение 21 кредита)
             try {
                 if (db.approvePendingCourseRegistration(email, code)) {
-                    manager.approveRegistration(); // Увеличиваем счетчик операций менеджера
                     ConsoleUi.printlnOk("Заявка успешно одобрена. Студент зачислен на курс.");
                 } else {
                     ConsoleUi.printlnErr("Ошибка: Не удалось провести транзакцию зачисления.");
                 }
-            } catch (Exception ex) { // Сюда упадет CreditLimitExceededException, если вы его создали
+            } catch (Exception ex) {
                 ConsoleUi.printlnErr("Отклонено системой правил: " + ex.getMessage());
             }
         } else if (cmd == 'r') {
             if (db.rejectPendingCourseRegistration(email, code)) {
-                ConsoleUi.printlnOk("Заявка успешно отклонена и удалена из очереди.");
+                ConsoleUi.printlnOk("Заявка успешно отклонена.");
             } else {
                 ConsoleUi.printlnErr("Заявка не найдена.");
             }
@@ -144,7 +134,6 @@ public final class ManagerConsole {
 
     private static void printDeanSignedRequests(UniversityDatabase db) {
         ConsoleUi.header("Официальные запросы от сотрудников");
-        // Фильтруем: выводим только REQUEST, которые уже имеют подпись декана
         List<EmployeeMessage> list = db.messagesRequiringDeanSignature().stream()
                 .filter(m -> m.getKind() == MessageKind.REQUEST && m.isRequiresDeanSignature())
                 .toList();
@@ -163,16 +152,15 @@ public final class ManagerConsole {
 
     private static void printMarksReport(Manager manager, UniversityDatabase db) {
         ConsoleUi.header("Генерация академического отчета");
-        
-        // Вызываем логику создания отчета непосредственно при запросе отчета (High Cohesion)
         manager.createStatisticalReport(); 
         
         List<Double> totals = new ArrayList<>();
         long passed = 0;
         for (User u : db.getUsers()) {
-            if (u instanceof Student s) {
+            User core = extractCoreUser(u); 
+            if (core instanceof Student s) {
                 for (Mark m : s.getTranscript().allMarks()) {
-                    totals.add(m.calculateFinalScore());
+                    totals.add((double) m.calculateFinalScore());
                     if (m.isPassed()) passed++;
                 }
             }
@@ -184,7 +172,7 @@ public final class ManagerConsole {
         double avg = totals.stream().mapToDouble(Double::doubleValue).average().orElse(0);
         System.out.println("Общее количество выставленных оценок: " + totals.size());
         System.out.printf("Средний балл по университету (Total Mean): %.2f%n", avg);
-        System.out.println("Процент успешной сдачи (GPA >= 50.0): " + (passed * 100 / totals.size()) + "%");
+        System.out.printf("Процент успешной сдачи (GPA >= 50.0): %.1f%%%n", (passed * 100.0 / totals.size()));
     }
 
     private static void createCourseCatalogEntry(Manager manager, UniversityDatabase db, Scanner in) {
@@ -217,7 +205,7 @@ public final class ManagerConsole {
             lesson.setDay(DayOfWeek.of(dow));
             int sh = ConsoleUi.promptInt(in, "Час начала занятия (8-20)", 8, 20);
             lesson.setStartTime(LocalTime.of(sh, 0));
-            lesson.setEndTime(LocalTime.of(sh + 1, 30)); // Стандартная пара — 1.5 часа
+            lesson.setEndTime(LocalTime.of(sh + 1, 30)); 
         }
 
         Course course = new Course();
@@ -227,99 +215,101 @@ public final class ManagerConsole {
         course.setCourseType(ct);
         if (!major.isBlank()) course.setIntendedMajor(major.trim());
         if (year > 0) course.setIntendedYearOfStudy(year);
-        course.setLesson(lesson);
+        if (lesson != null) course.addLesson(lesson);
 
         db.addCourse(course);
         db.recordAudit("MANAGER_ADD_COURSE " + code.trim());
         ConsoleUi.printlnOk("Дисциплина успешно внесена в академический реестр.");
     }
+
     private static void printStudentsByTranscriptGpa(UniversityDatabase db) {
-        ConsoleUi.header("Студенты по GPA(transcript)");
+        ConsoleUi.header("Студенты по GPA (transcript)");
         List<Student> list = new ArrayList<>();
         for (User u : db.getUsers()) {
-            if (u instanceof Student s) {
+            User core = extractCoreUser(u); 
+            if (core instanceof Student s) {
                 list.add(s);
             }
         }
         list.sort(Comparator.comparingDouble((Student s) -> s.getTranscript().getTotalGPA()).reversed());
         for (Student s : list) {
             System.out.printf("%s %s | studentId=%s | GPA=%.2f%n",
-                    s.getFirstName(),
-                    s.getLastName(),
-                    s.getStudentId(),
-                    s.getTranscript().getTotalGPA());
+                    s.getFirstName(), s.getLastName(), s.getStudentId(), s.getTranscript().getTotalGPA());
         }
     }
-	 private static void printTeachersAlphabeticalWithRatings(UniversityDatabase db) {
-	     ConsoleUi.header("Преподаватели и средний рейтинг");
-	     Map<String, List<Integer>> ratings = aggregateRatingsByTeacherEmailNormalized(db);
-	     List<Teacher> teachers = new ArrayList<>();
-	     for (User u : db.getUsers()) {
-	         if (u instanceof Teacher t) {
-	             teachers.add(t);
-	         }
-	     }
-	     teachers.sort(Comparator.comparing(Teacher::getLastName, Comparator.nullsFirst(String.CASE_INSENSITIVE_ORDER))
-	             .thenComparing(Teacher::getFirstName, Comparator.nullsFirst(String.CASE_INSENSITIVE_ORDER)));
-	     if (teachers.isEmpty()) {
-	         System.out.println("Нет преподавателей.");
-	         return;
-	     }
-	     for (Teacher t : teachers) {
-	         String emailKey = t.getEmail() != null ? t.getEmail().trim().toLowerCase(Locale.ROOT) : "";
-	         List<Integer> vals = ratings.getOrDefault(emailKey, List.of());
-	         double avg = vals.isEmpty()
-	                 ? Double.NaN
-	                 : vals.stream().mapToInt(Integer::intValue).average().orElse(Double.NaN);
-	         String avgStr = vals.isEmpty() ? "—" : String.format(Locale.ROOT, "%.2f★ (%d)", avg, vals.size());
-	         System.out.printf("%s %s | %s | dept=%s | avgRating=%s%n",
-	                 t.getFirstName(),
-	                 t.getLastName(),
-	                 t.getEmail(),
-	                 t.getDepartment(),
-	                 avgStr);
-	     }
-	 }
-	 private static void universityNewsFlow(Manager manager, UniversityDatabase db, Scanner in) {
-	     ConsoleUi.header("Новости");
-	     manager.manageNews();
-	     System.out.println("  1 — Показать все   2 — Добавить строку");
-	     System.out.print("Выбор: ");
-	     switch (ConsoleUi.trim(in.nextLine())) {
-	         case "1":
-	             var lines = db.getNewsLinesView();
-	             if (lines.isEmpty()) {
-	                 System.out.println("(пусто)");
-	             } else {
-	                 for (String s : lines) {
-	                     System.out.println(" • " + s);
-	                 }
-	             }
-	             break;
-	         case "2":
-	             System.out.print("Текст новости: ");
-	             String body = ConsoleUi.trim(in.nextLine());
-	             try {
-	                 db.addUniversityNews(body);
-	                 manager.manageNews();
-	                 ConsoleUi.printlnOk("Добавлено.");
-	             } catch (IllegalArgumentException ex) {
-	                 ConsoleUi.printlnErr(ex.getMessage());
-	             }
-	             break;
-	         default:
-	             ConsoleUi.printlnErr("Отмена.");
-	     }
-	 }
+
+    private static void printTeachersAlphabeticalWithRatings(UniversityDatabase db) {
+         ConsoleUi.header("Преподаватели и средний рейтинг");
+         Map<String, List<Integer>> ratings = aggregateRatingsByTeacherEmailNormalized(db);
+         List<Teacher> teachers = new ArrayList<>();
+         for (User u : db.getUsers()) {
+             User core = extractCoreUser(u); 
+             if (core instanceof Teacher t) {
+                 teachers.add(t);
+             }
+         }
+         teachers.sort(Comparator.comparing(Teacher::getLastName, Comparator.nullsFirst(String.CASE_INSENSITIVE_ORDER))
+                 .thenComparing(Teacher::getFirstName, Comparator.nullsFirst(String.CASE_INSENSITIVE_ORDER)));
+         
+         if (teachers.isEmpty()) {
+             System.out.println("Нет преподавателей.");
+             return;
+         }
+         for (Teacher t : teachers) {
+             String emailKey = t.getEmail() != null ? t.getEmail().trim().toLowerCase(Locale.ROOT) : "";
+             List<Integer> vals = ratings.getOrDefault(emailKey, List.of());
+             double avg = vals.isEmpty()
+                     ? Double.NaN
+                     : vals.stream().mapToInt(Integer::intValue).average().orElse(Double.NaN);
+             String avgStr = vals.isEmpty() ? "—" : String.format(Locale.ROOT, "%.2f★ (%d)", avg, vals.size());
+             System.out.printf("%s %s | %s | dept=%s | avgRating=%s%n",
+                     t.getFirstName(), t.getLastName(), t.getEmail(), t.getDepartment(), avgStr);
+         }
+     }
+
+     private static void universityNewsFlow(Manager manager, UniversityDatabase db, Scanner in) {
+         ConsoleUi.header("Новости");
+         System.out.println("  1 — Показать все   2 — Добавить строку");
+         System.out.print("Выбор: ");
+         switch (ConsoleUi.trim(in.nextLine())) {
+             case "1" -> {
+                 var lines = db.getNewsLinesView();
+                 if (lines.isEmpty()) {
+                     System.out.println("(пусто)");
+                 } else {
+                     for (String s : lines) System.out.println(" • " + s);
+                 }
+             }
+             case "2" -> {
+                 System.out.print("Текст новости: ");
+                 String body = ConsoleUi.trim(in.nextLine());
+                 try {
+                     db.addUniversityNews(body);
+                     ConsoleUi.printlnOk("Добавлено.");
+                 } catch (IllegalArgumentException ex) {
+                     ConsoleUi.printlnErr(ex.getMessage());
+                 }
+             }
+             default -> ConsoleUi.printlnErr("Отмена.");
+         }
+     }
     
     private static void assignInstructorFlow(UniversityDatabase db, Scanner in) {
         ConsoleUi.header("Назначение преподавателя на курс");
         String teacherEmail = ConsoleUi.promptRequired(in, "Email преподавателя");
         Optional<User> tu = db.findByEmailIgnoreCase(teacherEmail);
-        if (tu.isEmpty() || !(tu.get() instanceof Teacher teacher)) {
+        
+        if (tu.isEmpty()) {
             ConsoleUi.printlnErr("Преподаватель не найден.");
             return;
         }
+        
+        User core = extractCoreUser(tu.get()); 
+        if (!(core instanceof Teacher teacher)) {
+            ConsoleUi.printlnErr("Указанный пользователь не является преподавателем.");
+            return;
+        }
+        
         String courseCode = ConsoleUi.promptRequired(in, "Код курса");
         Optional<Course> co = db.findCourseByCode(courseCode);
         if (co.isEmpty()) {
@@ -334,7 +324,8 @@ public final class ManagerConsole {
     private static Map<String, List<Integer>> aggregateRatingsByTeacherEmailNormalized(UniversityDatabase db) {
         Map<String, List<Integer>> result = new HashMap<>();
         for (User u : db.getUsers()) {
-            if (u instanceof Student s) {
+            User core = extractCoreUser(u);
+            if (core instanceof Student s) {
                 s.getTeacherRatingsSnapshot().forEach((email, rating) ->
                     result.computeIfAbsent(email.toLowerCase(Locale.ROOT), k -> new ArrayList<>()).add(rating));
             }

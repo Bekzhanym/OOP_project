@@ -4,6 +4,7 @@ import kbtu_oop_project.domain.features.misc.EmployeeMessage;
 import kbtu_oop_project.domain.value.MessageKind;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 public class Employee extends User {
@@ -32,7 +33,7 @@ public class Employee extends User {
 
     public void sendMessage(Employee recipient, String body, MessageKind kind, boolean requiresDeanSignature) {
         if (recipient == null) {
-            System.out.println("Ошибка: Получатель не найден.");
+            System.out.println("❌ Ошибка: Получатель сообщения не найден.");
             return;
         }
 
@@ -46,7 +47,9 @@ public class Employee extends User {
         );
 
         recipient.receiveMessage(message);
+        
         this.messageBox.add(message);
+        System.out.println("✉️ Сообщение для " + recipient.getEmail() + " успешно отправлено.");
     }
 
     public void receiveMessage(EmployeeMessage message) {
@@ -56,14 +59,20 @@ public class Employee extends User {
     }
 
     public List<EmployeeMessage> getMessageBox() {
-        return messageBox;
+        return Collections.unmodifiableList(messageBox);
     }
 
-    public String getEmployeeId() {
-        return getId();
+    public List<EmployeeMessage> getIncomingMessages() {
+        return messageBox.stream()
+                .filter(msg -> msg.getToEmail().equalsIgnoreCase(this.getEmail()))
+                .toList();
     }
 
-    public void setEmployeeId(String employeeId) {
-        setId(employeeId);
+    public List<EmployeeMessage> getSentMessages() {
+        return messageBox.stream()
+                .filter(msg -> msg.getFromEmail().equalsIgnoreCase(this.getEmail()))
+                .toList();
     }
+
+    
 }

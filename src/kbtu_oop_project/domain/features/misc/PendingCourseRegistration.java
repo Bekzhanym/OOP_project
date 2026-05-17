@@ -5,32 +5,39 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.Objects;
 
 public final class PendingCourseRegistration implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
-    private String studentEmail;
-    private String courseCode;
-    private long submittedAtEpochMillis;
+    private final String studentEmail;
+    private final String courseCode;
+    private final long submittedAtEpochMillis;
 
-    public PendingCourseRegistration() {
+    private PendingCourseRegistration() {
+        this.studentEmail = "guest@kbtu.kz";
+        this.courseCode = "STUB000";
         this.submittedAtEpochMillis = System.currentTimeMillis();
     }
 
     public PendingCourseRegistration(String studentEmail, String courseCode) {
-        if (studentEmail == null || studentEmail.isBlank()) throw new IllegalArgumentException("Email студента обязателен");
-        if (courseCode == null || courseCode.isBlank()) throw new IllegalArgumentException("Код курса обязателен");
+        if (studentEmail == null || studentEmail.isBlank()) {
+            throw new IllegalArgumentException("Email студента обязателен для формирования заявки.");
+        }
         
-        this.studentEmail = studentEmail;
-        this.courseCode = courseCode;
-        this.submittedAtEpochMillis = System.currentTimeMillis();
-    }
-
-    public PendingCourseRegistration(String studentEmail, String courseCode, long submittedAtEpochMillis) {
-        this.studentEmail = studentEmail;
-        this.courseCode = courseCode;
-        this.submittedAtEpochMillis = submittedAtEpochMillis;
+        String cleanedEmail = studentEmail.trim().toLowerCase();
+        if (!cleanedEmail.endsWith("@kbtu.kz") || !cleanedEmail.contains("@")) {
+            throw new IllegalArgumentException("Некорректный формат почты. Регистрация доступна только для корпоративных аккаунтов @kbtu.kz");
+        }
+        
+        if (courseCode == null || courseCode.isBlank()) {
+            throw new IllegalArgumentException("Код дисциплины обязателен для регистрации.");
+        }
+        
+        this.studentEmail = cleanedEmail;
+        this.courseCode = courseCode.trim().toUpperCase(); 
+        this.submittedAtEpochMillis = System.currentTimeMillis(); 
     }
 
     public String getFormattedSubmissionTime() {
@@ -43,16 +50,26 @@ public final class PendingCourseRegistration implements Serializable {
 
     @Override
     public String toString() {
-        return String.format("Заявка: Студент [%s] претендует на курс [%s] (Подано: %s)", 
+        return String.format("[Заявка на регистрацию] %s → %s (%s)", 
                 studentEmail, courseCode, getFormattedSubmissionTime());
     }
 
     public String getStudentEmail() { return studentEmail; }
-    public void setStudentEmail(String studentEmail) { this.studentEmail = studentEmail; }
-
     public String getCourseCode() { return courseCode; }
-    public void setCourseCode(String courseCode) { this.courseCode = courseCode; }
-
     public long getSubmittedAtEpochMillis() { return submittedAtEpochMillis; }
-    public void setSubmittedAtEpochMillis(long submittedAtEpochMillis) { this.submittedAtEpochMillis = submittedAtEpochMillis; }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        PendingCourseRegistration that = (PendingCourseRegistration) o;
+        
+        return Objects.equals(studentEmail, that.studentEmail) &&
+               Objects.equals(courseCode, that.courseCode);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(studentEmail, courseCode);
+    }
 }

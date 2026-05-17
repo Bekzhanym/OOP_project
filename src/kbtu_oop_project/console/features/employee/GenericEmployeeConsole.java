@@ -3,6 +3,7 @@ package kbtu_oop_project.console.features.employee;
 import kbtu_oop_project.console.common.ConsoleUi;
 import kbtu_oop_project.domain.features.misc.EmployeeMessage;
 import kbtu_oop_project.domain.features.user.Employee;
+import kbtu_oop_project.domain.features.user.User;
 import kbtu_oop_project.domain.value.MessageKind;
 import kbtu_oop_project.infrastructure.persistence.UniversityDatabase;
 
@@ -15,7 +16,7 @@ public final class GenericEmployeeConsole {
         throw new UnsupportedOperationException("Это утилитарный класс для CLI сотрудников.");
     }
 
-    public static void start(Employee employee, UniversityDatabase db, Scanner in) {
+    public static void start(User employee, UniversityDatabase db, Scanner in) {
         while (true) {
             ConsoleUi.header("Корпоративная почта сотрудника");
             System.out.println("  1 — Посмотреть входящие сообщения");
@@ -33,16 +34,12 @@ public final class GenericEmployeeConsole {
         }
     }
 
-    private static void handleMenuChoice(String choice, Employee employee, UniversityDatabase db, Scanner in) {
+    private static void handleMenuChoice(String choice, User employee, UniversityDatabase db, Scanner in) {
+        
         switch (choice) {
-            case "1":
-                printInbox(db, employee.getEmail());
-                break;
-            case "2":
-                sendEmployeeMessageFlow(employee, db, in);
-                break;
-            default:
-                ConsoleUi.printlnErr("Неизвестная команда. Повторите ввод.");
+            case "1" -> printInbox(db, employee.getEmail());
+            case "2" -> sendEmployeeMessageFlow(employee, db, in);
+            default -> ConsoleUi.printlnErr("Неизвестная команда. Повторите ввод.");
         }
     }
 
@@ -64,7 +61,7 @@ public final class GenericEmployeeConsole {
         }
     }
 
-    private static void sendEmployeeMessageFlow(Employee from, UniversityDatabase db, Scanner in) {
+    private static void sendEmployeeMessageFlow(User from, UniversityDatabase db, Scanner in) {
         ConsoleUi.header("Новое отправление");
         
         String to = ConsoleUi.promptRequired(in, "Email получателя (Сотрудника)");
@@ -76,7 +73,6 @@ public final class GenericEmployeeConsole {
         
         System.out.print("Выбор (по умолчанию 1): ");
         String kindChoice = ConsoleUi.trim(in.nextLine());
-        
         
         MessageKind kind = switch (kindChoice) {
             case "2" -> MessageKind.COMPLAINT;

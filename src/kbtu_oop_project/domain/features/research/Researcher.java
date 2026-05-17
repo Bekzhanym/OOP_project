@@ -4,15 +4,14 @@ import java.util.Comparator;
 import java.util.List;
 
 public interface Researcher {
-    int getHIndex();
 
-    void setHIndex(int hIndex);
+    int getHIndex();
 
     List<ResearchPaper> getPapers();
 
-    void printPapers(Comparator<ResearchPaper> comparator);
-
     void addPaper(ResearchPaper paper);
+
+    void printPapers(Comparator<ResearchPaper> comparator);
 
     List<ResearchProject> getResearchProjects();
 

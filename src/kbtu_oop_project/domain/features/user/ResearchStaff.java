@@ -30,7 +30,7 @@ public class ResearchStaff extends Employee implements Researcher {
         return hIndex;
     }
 
-    @Override
+    @Deprecated
     public void setHIndex(int hIndex) {
         this.hIndex = hIndex;
     }
@@ -50,7 +50,7 @@ public class ResearchStaff extends Employee implements Researcher {
         List<ResearchPaper> copy = new ArrayList<>(papers);
         copy.sort(comparator);
         
-        System.out.println("=== НАУЧНЫЕ ТРУДЫ СОТРУДНИКА ===");
+        System.out.println("\n=== НАУЧНЫЕ ТРУДЫ СОТРУДНИКА ===");
         for (ResearchPaper paper : copy) {
             System.out.println(paper.getDetails());
         }
@@ -60,6 +60,7 @@ public class ResearchStaff extends Employee implements Researcher {
     public void addPaper(ResearchPaper paper) {
         if (paper != null && !papers.contains(paper)) {
             papers.add(paper);
+            updateHIndex(); 
         }
     }
 
@@ -70,9 +71,36 @@ public class ResearchStaff extends Employee implements Researcher {
 
     @Override
     public void addResearchProject(ResearchProject project) {
-        if (project != null && !researchProjects.contains(project)) {
+        if (project == null) return;
+
+        if (!researchProjects.contains(project)) {
             researchProjects.add(project);
-            project.addParticipant(this);
+            
+            if (!project.getParticipants().contains(this)) {
+                project.addParticipant(this); 
+            }
         }
+    }
+
+    private void updateHIndex() {
+        if (papers.isEmpty()) {
+            this.hIndex = 0;
+            return;
+        }
+
+        List<ResearchPaper> sortedPapers = new ArrayList<>(papers);
+        
+        sortedPapers.sort((p1, p2) -> Integer.compare(p2.getCitations(), p1.getCitations()));
+
+        int h = 0;
+        for (int i = 0; i < sortedPapers.size(); i++) {
+            
+            if (sortedPapers.get(i).getCitations() >= (i + 1)) {
+                h = i + 1;
+            } else {
+                break;
+            }
+        }
+        this.hIndex = h;
     }
 }
