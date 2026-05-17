@@ -26,7 +26,9 @@ public class Course implements Subject, Serializable {
     private List<Teacher> instructors = new ArrayList<>();
     private List<Student> enrolledStudents = new ArrayList<>();
     private Mark templateMark;
-    private List<Lesson> lessons = new ArrayList<>();    private Room room;
+    private List<Lesson> lessons = new ArrayList<>();
+    private Lesson lesson;
+    private Room room;
     private String intendedMajor;
     private int intendedYearOfStudy;
     private CourseType courseType = CourseType.ELECTIVE;
@@ -155,6 +157,10 @@ public class Course implements Subject, Serializable {
 
     public void setTemplateMark(Mark templateMark) {
         this.templateMark = templateMark;
+    }
+
+    public kbtu_oop_project.domain.value.LessonType getLessonType() {
+        return lesson != null ? lesson.getType() : null;
     }
 
     public Lesson getLesson() {

@@ -25,7 +25,7 @@ public final class UniversityApp {
             System.out.println("[Система] Обнаружена пустая база данных. Генерация системных аккаунтов по умолчанию...");
             
             
-            DATABASE.save(); 
+            DATABASE.saveData();
             System.out.println("[Система] Первичные данные успешно развернуты и сериализованы.");
         }
     }

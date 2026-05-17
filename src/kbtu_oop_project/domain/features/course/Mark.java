@@ -46,8 +46,12 @@ public class Mark implements Serializable {
         }
     }
 
+    public double calculateFinalScore() {
+        return getTotalScore();
+    }
+
     public boolean isPassed() {
-        return getTotalScore() >= 29.5 && finalExam >= 19.5; 
+        return getTotalScore() >= 49.5 && finalExam >= 19.5;
     }
 
     @Override

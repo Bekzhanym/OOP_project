@@ -5,11 +5,13 @@ import kbtu_oop_project.console.features.user.UserRoleFormatter;
 import kbtu_oop_project.domain.exception.SupervisorQualificationException;
 import kbtu_oop_project.domain.features.course.Course;
 import kbtu_oop_project.domain.features.misc.Log;
+import kbtu_oop_project.domain.features.research.Researcher;
 import kbtu_oop_project.domain.features.user.Student;
+import kbtu_oop_project.domain.features.user.Student4thYear;
 import kbtu_oop_project.domain.features.user.User;
 import kbtu_oop_project.infrastructure.persistence.UniversityDatabase;
 
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.Scanner;
@@ -146,7 +148,7 @@ public final class AdminConsole {
                 Log lg = new Log();
                 lg.setAction("admin_password_reset");
                 lg.setUserId(pwdUser.get().getId());
-                lg.setTimestamp(LocalDate.now());
+                lg.setTimestamp(LocalDateTime.now());
                 db.recordStructured(lg);
                 
                 ConsoleUi.printlnOk("Пароль успешно принудительно изменён.");
@@ -174,15 +176,20 @@ public final class AdminConsole {
         String svEmail = ConsoleUi.promptRequired(in, "Email научного руководителя");
         Optional<User> sv = db.findByEmailIgnoreCase(svEmail);
         
-        if (sv.isEmpty() || !sv.get().isResearcher()) {
+        if (sv.isEmpty() || !(sv.get() instanceof Researcher svResearcher)) {
             ConsoleUi.printlnErr("Ошибка: Выбранный руководитель не зарегистрирован как Исследователь (Researcher).");
             return;
         }
-        
+
+        if (!(su.get() instanceof Student4thYear student4) ) {
+            ConsoleUi.printlnErr("Ошибка: студент не является студентом 4 курса (Student4thYear).");
+            return;
+        }
+
         try {
-            student.setSupervisor(sv.get()); 
-            ConsoleUi.printlnOk("Руководитель успешно назначен! Подтвержденный h-index: " 
-                    + sv.get().getResearcherProfile().getHIndex());
+            student4.setSupervisor(svResearcher);
+            ConsoleUi.printlnOk("Руководитель успешно назначен! Подтвержденный h-index: "
+                    + svResearcher.getHIndex());
             db.recordAudit("SUPERVISOR_SET " + stEmail + " → " + svEmail);
         } catch (SupervisorQualificationException ex) {
             ConsoleUi.printlnErr("Отклонено системой: " + ex.getMessage());

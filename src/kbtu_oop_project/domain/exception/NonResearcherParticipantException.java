@@ -4,6 +4,8 @@ import kbtu_oop_project.domain.features.user.User;
 
 public class NonResearcherParticipantException extends RuntimeException {
 
+    private static final long serialVersionUID = 1L;
+
     public NonResearcherParticipantException(String message) {
         super(message);
     }

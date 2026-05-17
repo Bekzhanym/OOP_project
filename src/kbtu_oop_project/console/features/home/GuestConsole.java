@@ -14,10 +14,12 @@ import kbtu_oop_project.domain.features.user.User;
 import kbtu_oop_project.domain.value.CourseType;
 import kbtu_oop_project.domain.value.LessonType;
 import kbtu_oop_project.domain.value.Role;
+import kbtu_oop_project.domain.value.TeacherTitle;
 import kbtu_oop_project.infrastructure.persistence.UniversityDatabase;
 
 import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.Optional;
 import java.util.Scanner;
@@ -106,14 +108,14 @@ public final class GuestConsole {
             Log lg = new Log();
             lg.setAction("login_ok");
             lg.setUserId(hit.get().getId());
-            lg.setTimestamp(LocalDate.now());
+            lg.setTimestamp(LocalDateTime.now());
             db.recordStructured(lg);
         } else {
             db.recordAudit("LOGIN_FAIL " + email.trim());
             Log lg = new Log();
             lg.setAction("login_fail");
             lg.setUserId(null);
-            lg.setTimestamp(LocalDate.now());
+            lg.setTimestamp(LocalDateTime.now());
             db.recordStructured(lg);
         }
         return hit;
@@ -144,7 +146,7 @@ public final class GuestConsole {
             return null;
         }
 
-        User user = factory.createUser(role);
+        User user = UserFactory.createUser(role);
         
         String email = ConsoleUi.promptRequired(in, "Email (логин)");
         if (db.findByEmailIgnoreCase(email).isPresent()) {
@@ -175,7 +177,7 @@ public final class GuestConsole {
             System.out.println("  1 — Tutor  2 — Lector  3 — Senior Lector  4 — Professor");
             int titleChoice = ConsoleUi.promptInt(in, "Должность", 1, 4);
             
-            teacher.setTitle(switch (titleChoice) {
+            teacher.setTeacherTitle(switch (titleChoice) {
                 case 1 -> TeacherTitle.TUTOR;
                 case 2 -> TeacherTitle.LECTOR;
                 case 3 -> TeacherTitle.SENIOR_LECTOR;
@@ -199,7 +201,7 @@ public final class GuestConsole {
         Log lg = new Log();
         lg.setAction("register");
         lg.setUserId(user.getId());
-        lg.setTimestamp(LocalDate.now());
+        lg.setTimestamp(LocalDateTime.now());
         db.recordStructured(lg);
         
         ConsoleUi.printlnOk("Регистрация успешно завершена.");
@@ -208,7 +210,7 @@ public final class GuestConsole {
 
     private static void seedQuickDemo(UniversityDatabase db, UserFactory factory) {
         String suffix = Long.toString(System.currentTimeMillis() % 100_000);
-        Teacher teacher = (Teacher) factory.createUser(Role.TEACHER);
+        Teacher teacher = (Teacher) UserFactory.createUser(Role.TEACHER);
         teacher.setId("t-demo-" + suffix);
         teacher.setFirstName("Demo");
         teacher.setLastName("Teacher");
@@ -217,7 +219,7 @@ public final class GuestConsole {
         teacher.setHIndex(12);
         teacher.setDepartment("CS");
 
-        Student student = (Student) factory.createUser(Role.STUDENT);
+        Student student = (Student) UserFactory.createUser(Role.STUDENT);
         student.setId("s-demo-" + suffix);
         student.setFirstName("Demo");
         student.setLastName("Student");
@@ -226,7 +228,7 @@ public final class GuestConsole {
         student.setStudentId(student.getId());
 
         Lesson lesson = new Lesson();
-        lesson.setType(LessonType.Lecture);
+        lesson.setType(LessonType.LECTURE);
         lesson.setDay(DayOfWeek.MONDAY);
         lesson.setStartTime(LocalTime.of(9, 0));
         lesson.setEndTime(LocalTime.of(10, 30));

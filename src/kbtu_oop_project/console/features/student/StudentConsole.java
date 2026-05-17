@@ -17,7 +17,7 @@ import java.util.Optional;
 import java.util.Scanner;
 
 public final class StudentConsole {
-    private static final int MAX_ECTS_LIMIT = 35;
+    private static final int MAX_ECTS_LIMIT = 21;
 
     private StudentConsole() {
     }

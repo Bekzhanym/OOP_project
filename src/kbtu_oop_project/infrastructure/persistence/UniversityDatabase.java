@@ -21,6 +21,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -32,6 +33,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.regex.Pattern;
+import kbtu_oop_project.domain.value.MessageKind;
 
 public final class UniversityDatabase {
     private static final Path DEFAULT_STORAGE = Paths.get("data", "university-state.ser");
@@ -321,7 +323,7 @@ public final class UniversityDatabase {
 
     public void recordStructured(Log entry) {
         if (entry.getTimestamp() == null) {
-            entry.setTimestamp(LocalDate.now());
+            entry.setTimestamp(LocalDateTime.now());
         }
         logs.add(entry);
     }
@@ -455,7 +457,7 @@ public final class UniversityDatabase {
         return Collections.unmodifiableList(copy);
     }
 
-    public void postEmployeeMessage(User fromUser, String toEmail, String kind, String body,
+    public void postEmployeeMessage(User fromUser, String toEmail, MessageKind kind, String body,
                                     boolean requiresDeanSignature) {
         Objects.requireNonNull(fromUser);
         if (!(fromUser instanceof Employee)) {
@@ -464,16 +466,22 @@ public final class UniversityDatabase {
         if (toEmail == null || toEmail.isBlank()) {
             throw new IllegalArgumentException("Recipient email required.");
         }
+        if (body == null || body.isBlank()) {
+            throw new IllegalArgumentException("Message body required.");
+        }
         EmployeeMessage msg = new EmployeeMessage(
                 fromUser.getId(),
                 fromUser.getEmail(),
                 toEmail.trim(),
                 kind,
-                body != null ? body : "",
-                requiresDeanSignature,
-                System.currentTimeMillis());
+                body,
+                requiresDeanSignature);
         employeeMessages.add(msg);
-        recordAudit("MAIL_" + kind + " " + fromUser.getEmail() + "→" + toEmail.trim());
+        recordAudit("MAIL_" + kind.name() + " " + fromUser.getEmail() + "→" + toEmail.trim());
+    }
+
+    public int getPendingCount() {
+        return pendingCourseRegistrations.size();
     }
 
     public boolean removeUser(User user) {
@@ -503,9 +511,7 @@ public final class UniversityDatabase {
         }
         for (User u : users) {
             if (u instanceof Student s) {
-                if (s.getEnrolledCourses().remove(victim)) {
-                    s.setTotalCredits(Math.max(0, s.getTotalCredits() - victim.getCredits()));
-                }
+                s.dropCourse(victim);
             }
         }
         victim.clearEnrolledStudents();

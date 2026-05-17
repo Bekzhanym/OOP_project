@@ -21,7 +21,7 @@ public abstract class User implements Observer, Serializable {
     private final List<Notification> inbox = new ArrayList<>();
 
     public User() {
-        this.currentLanguage = Language.EN; 
+        this.currentLanguage = Language.ENG; 
     }
 
     public User(String id, String firstName, String lastName, String email, String password) {
@@ -30,7 +30,7 @@ public abstract class User implements Observer, Serializable {
         this.lastName = lastName;
         this.email = email;
         this.password = password;
-        this.currentLanguage = Language.EN;
+        this.currentLanguage = Language.ENG;
     }
 
     @Override

@@ -30,8 +30,8 @@ public class Room implements Serializable {
         switch (this.type) {
             case LECTURE_HALL:
                 return lessonType == LessonType.LECTURE;
-            case COMPUTER_LAB:
-            case STUDY_ROOM:
+            case LABORATORY:
+            case PRACTICE_ROOM:
                 return lessonType == LessonType.PRACTICE;
             default:
                 return true;

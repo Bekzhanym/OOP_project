@@ -71,7 +71,7 @@ public class Manager extends Employee {
     }
 
     public void generateSchedule() {
-        if (this.title != ManagerType.OR) {
+        if (this.title != ManagerType.OFFICE_REGISTRATOR) {
             System.out.println("Ошибка: Только менеджеры Office of Registrar могут изменять расписание.");
             return;
         }
@@ -83,6 +83,21 @@ public class Manager extends Employee {
         System.out.println("Средний GPA по университету: [Расчетные данные]");
         System.out.println("Количество студентов на грани отчисления: [Данные]");
     }
+
+    public void approveRegistration() {
+        System.out.println("Менеджер " + getFullName() + " подтвердил регистрацию.");
+    }
+
+    public void manageNews() {
+        System.out.println("[Менеджер] Управление новостной лентой.");
+    }
+
+    @Override
+    public void logout() {
+        System.out.println("Менеджер (" + title + ") " + getEmail() + " вышел из системы.");
+    }
+
+    public ManagerType getManagerType() { return title; }
 
     public ManagerType getTitle() { return title; }
     public void setTitle(ManagerType title) { this.title = title; }

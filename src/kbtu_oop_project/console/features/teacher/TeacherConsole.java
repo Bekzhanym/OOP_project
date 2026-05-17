@@ -9,15 +9,15 @@ import kbtu_oop_project.domain.features.research.ResearchPaper;
 import kbtu_oop_project.domain.features.research.ResearchProject;
 import kbtu_oop_project.domain.features.user.Student;
 import kbtu_oop_project.domain.features.user.Teacher;
-import kbtu_oop_project.domain.sort.PaperComparator;
 import kbtu_oop_project.domain.value.CourseType;
 import kbtu_oop_project.domain.value.LessonType;
+import kbtu_oop_project.domain.value.MessageKind;
 import kbtu_oop_project.infrastructure.persistence.UniversityDatabase;
 
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalTime;
-import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Scanner;
 
@@ -119,7 +119,7 @@ public final class TeacherConsole {
         
         int citations = ConsoleUi.promptInt(in, "Количество цитирований", 0, 1_000_000);
         int pages = ConsoleUi.promptInt(in, "Количество страниц", 1, 10_000);
-        LocalDate pubDate = ConsoleUi.promptDate(in, "Дата yyyy-MM-dd (Enter = сегодня)");
+        LocalDate pubDate = ConsoleUi.promptDate(in, "Дата yyyy-MM-dd (Enter = сегодня)", LocalDate.now());
         
         ResearchPaper paper = new ResearchPaper(paperTitle, authors, journal, publisher, doi, keywords, citations, pages, pubDate);
         teacher.addPaper(paper);
@@ -127,7 +127,7 @@ public final class TeacherConsole {
     }
 
     private static void printSortedPapers(UniversityDatabase db, Scanner in) {
-        PaperComparator cmp = ConsoleUi.choosePaperComparator(in);
+        Comparator<ResearchPaper> cmp = ConsoleUi.choosePaperComparator(in);
         ConsoleUi.header("Статьи всех исследователей университета");
         db.printAllResearchersPapersSorted(cmp);
     }
@@ -197,7 +197,7 @@ public final class TeacherConsole {
         System.out.println("Категория отправления: 1 — Сообщение   2 — Официальная жалоба (Complaint)");
         System.out.print("Выбор: ");
         String kindChoice = ConsoleUi.trim(in.nextLine());
-        String kind = "2".equals(kindChoice) ? EmployeeMessage.KIND_COMPLAINT : EmployeeMessage.KIND_MESSAGE;
+        MessageKind kind = "2".equals(kindChoice) ? MessageKind.COMPLAINT : MessageKind.MESSAGE;
         
         System.out.print("Текст отправления: ");
         String body = ConsoleUi.trim(in.nextLine());
@@ -315,7 +315,7 @@ public final class TeacherConsole {
         String ltPick = ConsoleUi.trim(in.nextLine());
         if ("1".equals(ltPick) || "2".equals(ltPick)) {
             lessonPatch = new Lesson();
-            lessonPatch.setType("1".equals(ltPick) ? LessonType.Lecture : LessonType.Practice);
+            lessonPatch.setType("1".equals(ltPick) ? LessonType.LECTURE : LessonType.PRACTICE);
             int dow = ConsoleUi.promptInt(in, "День проведения (1=Пн … 7=Вс)", 1, 7);
             lessonPatch.setDay(DayOfWeek.of(dow));
             int sh = ConsoleUi.promptInt(in, "Час начала занятия", 8, 21);

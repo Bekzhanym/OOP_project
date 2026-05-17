@@ -16,6 +16,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 
 public class Student extends User implements Researcher {
 
@@ -172,6 +173,21 @@ public class Student extends User implements Researcher {
         if (project != null && !researchProjects.contains(project)) {
             researchProjects.add(project);
             project.addParticipant(this);
+        }
+    }
+
+    public String getMajor() {
+        return "";
+    }
+
+    public Optional<Mark> getMarkForCourse(Course course) {
+        if (course == null) return Optional.empty();
+        return Optional.ofNullable(transcript.getMarkForCourse(course.getCourseCode()));
+    }
+
+    public void dropCourse(Course course) {
+        if (enrolledCourses.remove(course)) {
+            totalCredits = Math.max(0, totalCredits - course.getCredits());
         }
     }
 

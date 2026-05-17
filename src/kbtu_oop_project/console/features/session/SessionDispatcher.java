@@ -16,7 +16,7 @@ import kbtu_oop_project.domain.features.user.Teacher;
 import kbtu_oop_project.domain.features.user.User;
 import kbtu_oop_project.infrastructure.persistence.UniversityDatabase;
 
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.Scanner;
 
 public final class SessionDispatcher {
@@ -39,7 +39,7 @@ public final class SessionDispatcher {
                 Log lg = new Log();
                 lg.setAction("logout");
                 lg.setUserId(user.getId());
-                lg.setTimestamp(LocalDate.now());
+                lg.setTimestamp(LocalDateTime.now());
                 db.recordStructured(lg);
             }
         }
@@ -52,7 +52,8 @@ public final class SessionDispatcher {
 
     private static boolean dispatchSession(User user, UniversityDatabase db, Scanner in) {
         if (user instanceof Admin adminUser) {
-            return AdminConsole.adminMenu(adminUser, db, in);
+            AdminConsole.start(adminUser, db, in);
+            return true;
         }
         
         if (user instanceof Teacher teacher) {

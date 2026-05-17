@@ -3,6 +3,7 @@ package kbtu_oop_project.console.features.employee;
 import kbtu_oop_project.console.common.ConsoleUi;
 import kbtu_oop_project.domain.features.misc.EmployeeMessage;
 import kbtu_oop_project.domain.features.user.Employee;
+import kbtu_oop_project.domain.value.MessageKind;
 import kbtu_oop_project.infrastructure.persistence.UniversityDatabase;
 
 import java.util.List;
@@ -56,7 +57,7 @@ public final class GenericEmployeeConsole {
         
         int i = 1;
         for (EmployeeMessage m : inbox) {
-            System.out.println(i++ + ") [" + m.getKind().toUpperCase() + "] от " + m.getFromEmail());
+            System.out.println(i++ + ") [" + m.getKind().name() + "] от " + m.getFromEmail());
             System.out.println("     Статус: " + (m.isRequiresDeanSignature() ? "⚠️ Требуется подпись декана/ректора" : "ℹ️ Информационное"));
             System.out.println("     Текст: " + m.getBody());
             System.out.println("  ────────────────────────────────────────");

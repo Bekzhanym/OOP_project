@@ -23,7 +23,9 @@ public class Student4thYear extends Student {
             throw new IllegalArgumentException("Supervisor cannot be null");
         }
         if (supervisor.getHIndex() < SupervisorQualificationException.minimumRequired()) {
-            throw SupervisorQualificationException.belowMinimum(supervisor.getHIndex());
+            String msg = "Supervisor h-index must be >= " + SupervisorQualificationException.minimumRequired()
+                    + " (given: " + supervisor.getHIndex() + ")";
+            throw new SupervisorQualificationException(msg);
         }
         this.researchSupervisor = supervisor;
     }

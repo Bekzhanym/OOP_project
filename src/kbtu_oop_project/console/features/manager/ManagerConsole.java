@@ -12,12 +12,14 @@ import kbtu_oop_project.domain.features.user.Teacher;
 import kbtu_oop_project.domain.features.user.User;
 import kbtu_oop_project.domain.value.CourseType;
 import kbtu_oop_project.domain.value.LessonType;
-import kbtu_oop_project.domain.value.ManagerType; // Подключаем Enum типов менеджеров
+import kbtu_oop_project.domain.value.ManagerType;
+import kbtu_oop_project.domain.value.MessageKind;
 import kbtu_oop_project.infrastructure.persistence.UniversityDatabase;
 
 import java.time.DayOfWeek;
 import java.time.LocalTime;
 import java.util.*;
+import java.util.Optional;
 
 public final class ManagerConsole {
 
@@ -78,7 +80,7 @@ public final class ManagerConsole {
         }
 
         // Ограничение: Утверждать регистрацию по ТЗ имеет право только Office of Registrar (OR)
-        if (manager.getManagerType() != ManagerType.OR) {
+        if (manager.getManagerType() != ManagerType.OFFICE_REGISTRATOR) {
             ConsoleUi.printlnErr("Предупреждение: Согласно регламенту, утверждать регистрацию может только менеджер OR.");
             System.out.print("Продолжить операцию вопреки ограничениям? (y/n): ");
             if (!"y".equalsIgnoreCase(ConsoleUi.trim(in.nextLine()))) return;
@@ -144,7 +146,7 @@ public final class ManagerConsole {
         ConsoleUi.header("Официальные запросы от сотрудников");
         // Фильтруем: выводим только REQUEST, которые уже имеют подпись декана
         List<EmployeeMessage> list = db.messagesRequiringDeanSignature().stream()
-                .filter(m -> "REQUEST".equalsIgnoreCase(m.getKind()) && m.isRequiresDeanSignature()) 
+                .filter(m -> m.getKind() == MessageKind.REQUEST && m.isRequiresDeanSignature())
                 .toList();
 
         if (list.isEmpty()) {
@@ -210,7 +212,7 @@ public final class ManagerConsole {
         String lt = ConsoleUi.trim(in.nextLine());
         if ("1".equals(lt) || "2".equals(lt)) {
             lesson = new Lesson();
-            lesson.setType("1".equals(lt) ? LessonType.Lecture : LessonType.Practice);
+            lesson.setType("1".equals(lt) ? LessonType.LECTURE : LessonType.PRACTICE);
             int dow = ConsoleUi.promptInt(in, "День недели (1=Пн ... 7=Вс)", 1, 7);
             lesson.setDay(DayOfWeek.of(dow));
             int sh = ConsoleUi.promptInt(in, "Час начала занятия (8-20)", 8, 20);
@@ -310,6 +312,33 @@ public final class ManagerConsole {
 	     }
 	 }
     
-} 
+    private static void assignInstructorFlow(UniversityDatabase db, Scanner in) {
+        ConsoleUi.header("Назначение преподавателя на курс");
+        String teacherEmail = ConsoleUi.promptRequired(in, "Email преподавателя");
+        Optional<User> tu = db.findByEmailIgnoreCase(teacherEmail);
+        if (tu.isEmpty() || !(tu.get() instanceof Teacher teacher)) {
+            ConsoleUi.printlnErr("Преподаватель не найден.");
+            return;
+        }
+        String courseCode = ConsoleUi.promptRequired(in, "Код курса");
+        Optional<Course> co = db.findCourseByCode(courseCode);
+        if (co.isEmpty()) {
+            ConsoleUi.printlnErr("Курс не найден.");
+            return;
+        }
+        co.get().addInstructor(teacher);
+        db.recordAudit("ASSIGN_INSTRUCTOR " + teacherEmail + " → " + courseCode);
+        ConsoleUi.printlnOk("Преподаватель назначен на курс.");
+    }
 
-
+    private static Map<String, List<Integer>> aggregateRatingsByTeacherEmailNormalized(UniversityDatabase db) {
+        Map<String, List<Integer>> result = new HashMap<>();
+        for (User u : db.getUsers()) {
+            if (u instanceof Student s) {
+                s.getTeacherRatingsSnapshot().forEach((email, rating) ->
+                    result.computeIfAbsent(email.toLowerCase(Locale.ROOT), k -> new ArrayList<>()).add(rating));
+            }
+        }
+        return result;
+    }
+}

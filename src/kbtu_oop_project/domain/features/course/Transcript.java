@@ -22,7 +22,7 @@ public class Transcript implements Serializable {
     public Map<Course, Mark> getGradesByYear(int yearOfStudy) {
         return courseMarks.entrySet().stream()
                 .filter(entry -> entry.getKey().getIntendedYearOfStudy() == yearOfStudy)
-                .collect(Collectors.unmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
+                .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, Map.Entry::getValue));
     }
 
     public Collection<Mark> allMarks() {
@@ -31,6 +31,14 @@ public class Transcript implements Serializable {
 
     public boolean hasMarks() {
         return !courseMarks.isEmpty();
+    }
+
+    public Map<String, Mark> getGradesBySemester(String semesterFilter) {
+        return courseMarks.entrySet().stream()
+                .filter(e -> e.getKey().getCourseCode() != null)
+                .collect(Collectors.toMap(
+                        e -> e.getKey().getCourseCode(),
+                        Map.Entry::getValue));
     }
 
     public Mark getMarkForCourse(String courseCode) {

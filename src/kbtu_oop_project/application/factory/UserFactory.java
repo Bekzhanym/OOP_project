@@ -6,7 +6,7 @@ import kbtu_oop_project.domain.value.TeacherTitle;
 
 public final class UserFactory {
 
-    private UserFactory() {
+    public UserFactory() {
     }
 
     public static User createUser(Role role) {
