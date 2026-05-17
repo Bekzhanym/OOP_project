@@ -11,67 +11,94 @@ import java.util.Scanner;
 public final class GenericEmployeeConsole {
 
     private GenericEmployeeConsole() {
+        throw new UnsupportedOperationException("Это утилитарный класс для CLI сотрудников.");
     }
 
-    public static boolean menu(Employee employee, UniversityDatabase db, Scanner in) {
-        System.out.println("  1 — Внутренняя почта (входящие)");
-        System.out.println("  2 — Отправить сообщение / жалобу сотруднику");
-        System.out.println("  0 — Выйти из аккаунта");
-        System.out.print("Выбор: ");
-        switch (ConsoleUi.trim(in.nextLine())) {
+    public static void start(Employee employee, UniversityDatabase db, Scanner in) {
+        while (true) {
+            ConsoleUi.header("Корпоративная почта сотрудника");
+            System.out.println("  1 — Посмотреть входящие сообщения");
+            System.out.println("  2 — Отправить сообщение / жалобу / запрос");
+            System.out.println("  0 — Вернуться в главное меню");
+            
+            System.out.print("Выбор: ");
+            String choice = ConsoleUi.trim(in.nextLine());
+            
+            if ("0".equals(choice)) {
+                break;
+            }
+            
+            handleMenuChoice(choice, employee, db, in);
+        }
+    }
+
+    private static void handleMenuChoice(String choice, Employee employee, UniversityDatabase db, Scanner in) {
+        switch (choice) {
             case "1":
                 printInbox(db, employee.getEmail());
                 break;
             case "2":
                 sendEmployeeMessageFlow(employee, db, in);
                 break;
-            case "0":
-                return true;
             default:
-                ConsoleUi.printlnErr("Неизвестная команда.");
+                ConsoleUi.printlnErr("Неизвестная команда. Повторите ввод.");
         }
-        return false;
     }
 
     private static void printInbox(UniversityDatabase db, String email) {
-        ConsoleUi.header("Входящие");
+        ConsoleUi.header("Входящие сообщения");
         List<EmployeeMessage> inbox = db.messagesForRecipientEmailIgnoreCase(email);
+        
         if (inbox.isEmpty()) {
-            System.out.println("(нет сообщений)");
+            System.out.println("  (Ваш ящик пуст)");
             return;
         }
+        
         int i = 1;
         for (EmployeeMessage m : inbox) {
-            System.out.println(i++ + ") [" + m.getKind() + "] от " + m.getFromEmail());
-            System.out.println("   → вам | deanFlag=" + m.isRequiresDeanSignature());
-            System.out.println("   " + m.getBody());
-            System.out.println();
+            System.out.println(i++ + ") [" + m.getKind().toUpperCase() + "] от " + m.getFromEmail());
+            System.out.println("     Статус: " + (m.isRequiresDeanSignature() ? "⚠️ Требуется подпись декана/ректора" : "ℹ️ Информационное"));
+            System.out.println("     Текст: " + m.getBody());
+            System.out.println("  ────────────────────────────────────────");
         }
     }
 
     private static void sendEmployeeMessageFlow(Employee from, UniversityDatabase db, Scanner in) {
-        System.out.print("Email получателя (Employee): ");
-        String to = ConsoleUi.trim(in.nextLine());
-        if (to.isEmpty()) {
-            ConsoleUi.printlnErr("Отмена.");
-            return;
-        }
-        System.out.println("Тип: 1 — сообщение   2 — жалоба");
-        System.out.print("Выбор: ");
+        ConsoleUi.header("Новое отправление");
+        
+        String to = ConsoleUi.promptRequired(in, "Email получателя (Сотрудника)");
+        
+        System.out.println("Выберите тип отправления:");
+        System.out.println("  1 — Обычное сообщение");
+        System.out.println("  2 — Официальная жалоба (Complaint)");
+        System.out.println("  3 — Запрос/Заявление (Request)");
+        
+        System.out.print("Выбор (по умолчанию 1): ");
         String kindChoice = ConsoleUi.trim(in.nextLine());
-        String kind = switch (kindChoice) {
-            case "2" -> EmployeeMessage.KIND_COMPLAINT;
-            default -> EmployeeMessage.KIND_MESSAGE;
+        
+        
+        MessageKind kind = switch (kindChoice) {
+            case "2" -> MessageKind.COMPLAINT;
+            case "3" -> MessageKind.REQUEST;
+            default -> MessageKind.MESSAGE;
         };
-        System.out.print("Текст: ");
-        String body = ConsoleUi.trim(in.nextLine());
-        System.out.print("Требуется подпись декана? y/n: ");
-        boolean dean = "y".equalsIgnoreCase(ConsoleUi.trim(in.nextLine()));
+        
+        String body = ConsoleUi.promptRequired(in, "Введите текст сообщения");
+        
+        boolean dean = false;
+        if (kind == MessageKind.REQUEST) {
+            dean = true;
+            System.out.println("ℹ️ Для данного типа отправления (Запрос) автоматически требуется подпись декана/ректора.");
+        } else {
+            System.out.print("Требуется официальное подписание деканом/ректором? (y/n): ");
+            dean = "y".equalsIgnoreCase(ConsoleUi.trim(in.nextLine()));
+        }
+        
         try {
             db.postEmployeeMessage(from, to, kind, body, dean);
-            ConsoleUi.printlnOk("Отправлено.");
+            ConsoleUi.printlnOk("Отправление успешно зарегистрировано в системе.");
         } catch (IllegalArgumentException ex) {
-            ConsoleUi.printlnErr(ex.getMessage());
+            ConsoleUi.printlnErr("Ошибка отправки: " + ex.getMessage());
         }
     }
 }

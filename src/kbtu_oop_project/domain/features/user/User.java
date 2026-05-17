@@ -20,70 +20,69 @@ public abstract class User implements Observer, Serializable {
     private Language currentLanguage;
     private final List<Notification> inbox = new ArrayList<>();
 
-    public abstract void login();
+    public User() {
+        this.currentLanguage = Language.EN; 
+    }
 
-    public abstract void logout();
+    public User(String id, String firstName, String lastName, String email, String password) {
+        this.id = id;
+        this.firstName = firstName;
+        this.lastName = lastName;
+        this.email = email;
+        this.password = password;
+        this.currentLanguage = Language.EN;
+    }
 
-    public abstract void changePassword(String newPassword);
+    @Override
+    public void update(Notification notification) {
+        if (notification != null) {
+            inbox.add(notification);
+        }
+    }
+
+    public String getFullName() {
+        return firstName + " " + lastName;
+    }
+
+    public String getUserRole() {
+        return this.getClass().getSimpleName();
+    }
 
     public boolean authenticate(String passwordAttempt) {
         return passwordAttempt != null && passwordAttempt.equals(password);
     }
 
+    public void changePassword(String newPassword) {
+        if (newPassword == null || newPassword.isBlank()) {
+            throw new IllegalArgumentException("Пароль не может быть пустым");
+        }
+        this.password = newPassword;
+    }
+
+    public abstract void login();
+    public abstract void logout();
+
     @Override
-    public void update(Notification notification) {
-        inbox.add(notification);
+    public String toString() {
+        return String.format("[%s] ID: %s | %s (%s)", getUserRole(), id, getFullName(), email);
     }
 
-    public List<Notification> getInbox() {
-        return inbox;
-    }
+    public List<Notification> getInbox() { return inbox; }
+    public String getId() { return id; }
+    public void setId(String id) { this.id = id; }
 
-    public String getId() {
-        return id;
-    }
+    public String getFirstName() { return firstName; }
+    public void setFirstName(String firstName) { this.firstName = firstName; }
 
-    public void setId(String id) {
-        this.id = id;
-    }
+    public String getLastName() { return lastName; }
+    public void setLastName(String lastName) { this.lastName = lastName; }
 
-    public String getFirstName() {
-        return firstName;
-    }
+    public String getEmail() { return email; }
+    public void setEmail(String email) { this.email = email; }
 
-    public void setFirstName(String firstName) {
-        this.firstName = firstName;
-    }
+    public String getPassword() { return password; }
+    public void setPassword(String password) { this.password = password; }
 
-    public String getLastName() {
-        return lastName;
-    }
-
-    public void setLastName(String lastName) {
-        this.lastName = lastName;
-    }
-
-    public String getEmail() {
-        return email;
-    }
-
-    public void setEmail(String email) {
-        this.email = email;
-    }
-
-    public String getPassword() {
-        return password;
-    }
-
-    public void setPassword(String password) {
-        this.password = password;
-    }
-
-    public Language getCurrentLanguage() {
-        return currentLanguage;
-    }
-
-    public void setCurrentLanguage(Language currentLanguage) {
-        this.currentLanguage = currentLanguage;
-    }
+    public Language getCurrentLanguage() { return currentLanguage; }
+    public void setCurrentLanguage(Language currentLanguage) { this.currentLanguage = currentLanguage; }
 }

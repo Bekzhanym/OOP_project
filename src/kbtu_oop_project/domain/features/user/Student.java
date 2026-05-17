@@ -33,8 +33,17 @@ public class Student extends User implements Researcher {
     private int hIndex;
     private final List<ResearchPaper> papers = new ArrayList<>();
     private final List<ResearchProject> researchProjects = new ArrayList<>();
-    /** Non-final: older .ser snapshots may deserialize this map as null. */
+    
     private Map<String, Integer> teacherRatingsByEmail = new HashMap<>();
+
+    public Student() {
+        super();
+    }
+
+    public Student(String id, String firstName, String lastName, String email, String password, int yearOfStudy) {
+        super(id, firstName, lastName, email, password);
+        this.yearOfStudy = yearOfStudy;
+    }
 
     private Map<String, Integer> teacherRatingsBacking() {
         if (teacherRatingsByEmail == null) {
@@ -52,15 +61,17 @@ public class Student extends User implements Researcher {
 
     @Override
     public void login() {
+        System.out.println("Студент " + getEmail() + " вошел в личный кабинет.");
     }
 
     @Override
     public void logout() {
+        System.out.println("Студент " + getEmail() + " вышел из системы.");
     }
 
     @Override
     public void changePassword(String newPassword) {
-        setPassword(newPassword);
+        super.changePassword(newPassword);
     }
 
     public void registerForCourse(Course course) {
@@ -78,32 +89,40 @@ public class Student extends User implements Researcher {
         course.enrollStudent(this);
     }
 
-    /** Вывод transcript в stdout (как в UML: операция estudента). */
     public void viewTranscript() {
         if (!transcript.hasMarks()) {
             System.out.println("Пока нет сохранённых оценок.");
             return;
         }
+        System.out.println("\n======= ОФИЦИАЛЬНЫЙ ТРАНСКРИПТ =======");
         for (Map.Entry<String, Mark> e : transcript.getGradesBySemester("_").entrySet()) {
             Mark m = e.getValue();
             System.out.println(e.getKey() + ": итог=" + String.format(Locale.ROOT, "%.1f", m.calculateFinalScore())
                     + ", GPA(ball)=" + String.format(Locale.ROOT, "%.2f", m.calculateGPA())
                     + ", зачёт=" + (m.isPassed() ? "да" : "нет"));
         }
+        System.out.println("--------------------------------------");
         System.out.println("Средний GPA по transcript: "
                 + String.format(Locale.ROOT, "%.2f", transcript.getTotalGPA()));
+        System.out.println("======================================");
     }
 
-    public void submitStartup(String title) {
+    public StartupProject submitStartup(String title, String description) {
+        StartupProject startup = new StartupProject(title, description);
+        startup.addTeamMember(this); 
+        return startup;
     }
 
     public void requestRecommendation(Teacher teacher) {
+        if (teacher == null) {
+            throw new IllegalArgumentException("Teacher cannot be null");
+        }
         teacher.writeRecommendation(this);
     }
 
     public void addFailedAttempt() {
         if (failedAttempts >= MAX_FAILED_ATTEMPTS) {
-            throw new IllegalStateException("max failed attempts");
+            throw new IllegalStateException("Превышено максимальное количество завалов (FX/F). Студент отправляется на ретейк.");
         }
         failedAttempts++;
     }
@@ -120,11 +139,15 @@ public class Student extends User implements Researcher {
 
     @Override
     public List<ResearchPaper> getPapers() {
-        return papers;
+        return Collections.unmodifiableList(papers);
     }
 
     @Override
     public void printPapers(Comparator<ResearchPaper> comparator) {
+        if (papers.isEmpty()) {
+            System.out.println("У студента пока нет опубликованных научных трудов.");
+            return;
+        }
         List<ResearchPaper> copy = new ArrayList<>(papers);
         copy.sort(comparator);
         for (ResearchPaper paper : copy) {
@@ -134,12 +157,14 @@ public class Student extends User implements Researcher {
 
     @Override
     public void addPaper(ResearchPaper paper) {
-        papers.add(paper);
+        if (paper != null && !papers.contains(paper)) {
+            papers.add(paper);
+        }
     }
 
     @Override
     public List<ResearchProject> getResearchProjects() {
-        return researchProjects;
+        return Collections.unmodifiableList(researchProjects);
     }
 
     @Override
@@ -158,13 +183,14 @@ public class Student extends User implements Researcher {
             throw new IllegalArgumentException("Rating must be between 1 and 5 stars.");
         }
         teacherRatingsBacking().put(teacher.getEmail().trim().toLowerCase(Locale.ROOT), stars1to5);
+        
+        teacher.addRating(this.getEmail(), stars1to5);
     }
 
     public Map<String, Integer> getTeacherRatingsSnapshot() {
         return Collections.unmodifiableMap(new HashMap<>(teacherRatingsBacking()));
     }
 
-    /** Academic identifier used for transcripts and grading (UML {@code studentId}). */
     public String getStudentId() {
         return studentId != null && !studentId.isBlank() ? studentId : getId();
     }
@@ -190,7 +216,7 @@ public class Student extends User implements Researcher {
     }
 
     public List<Course> getEnrolledCourses() {
-        return enrolledCourses;
+        return Collections.unmodifiableList(enrolledCourses);
     }
 
     public int getTotalCredits() {

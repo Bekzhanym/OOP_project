@@ -24,7 +24,7 @@ public class ResearchPaper implements Serializable, Comparable<ResearchPaper> {
 
     public ResearchPaper(String title, List<String> authors, String journal, String publisher,
                          String doi, String keywords, int citations, int pages, LocalDate date) {
-        this.title = Objects.requireNonNullElse(title, "");
+        this.title = Objects.requireNonNullElse(title, "").trim();
         this.authors = authors != null ? new ArrayList<>(authors) : new ArrayList<>();
         this.journal = journal;
         this.publisher = publisher;
@@ -82,7 +82,7 @@ public class ResearchPaper implements Serializable, Comparable<ResearchPaper> {
     public String getDetails() {
         String authorStr = authors.isEmpty() ? "n/a" : String.join(", ", authors);
         return String.format(
-                "%s | authors=[%s] | %s | journal=%s | publisher=%s | doi=%s | kw=%s | cit=%d | pages=%d | date=%s",
+                "%s | authors=[%s] | impact=%.2f | journal=%s | publisher=%s | doi=%s | kw=%s | cit=%d | pages=%d | date=%s",
                 title,
                 authorStr,
                 calculateImpact(),
@@ -95,79 +95,42 @@ public class ResearchPaper implements Serializable, Comparable<ResearchPaper> {
                 date);
     }
 
+    public String toPlainCitation() {
+        String authorStr = authors.isEmpty() ? "Unknown Author" : String.join(", ", authors);
+        String journalStr = journal != null ? journal : "Unknown Journal";
+        int year = date != null ? date.getYear() : 0;
+        return String.format("%s. (%d). \"%s\". %s. Поцитировано: %d раз.", 
+                authorStr, year, title, journalStr, citations);
+    }
+
     public double calculateImpact() {
         return citations == 0 ? 0 : (double) citations / Math.max(pages, 1);
     }
 
-    public String getTitle() {
-        return title;
-    }
+    public String getTitle() { return title; }
+    public void setTitle(String title) { this.title = title; }
 
-    public void setTitle(String title) {
-        this.title = title;
-    }
+    public List<String> getAuthors() { return Collections.unmodifiableList(authors); }
+    public void setAuthors(List<String> authors) { this.authors = authors != null ? new ArrayList<>(authors) : new ArrayList<>(); }
 
-    public List<String> getAuthors() {
-        return Collections.unmodifiableList(authors);
-    }
+    public String getJournal() { return journal; }
+    public void setJournal(String journal) { this.journal = journal; }
 
-    public void setAuthors(List<String> authors) {
-        this.authors = authors != null ? new ArrayList<>(authors) : new ArrayList<>();
-    }
+    public String getPublisher() { return publisher; }
+    public void setPublisher(String publisher) { this.publisher = publisher; }
 
-    public String getJournal() {
-        return journal;
-    }
+    public String getDoi() { return doi; }
+    public void setDoi(String doi) { this.doi = doi; }
 
-    public void setJournal(String journal) {
-        this.journal = journal;
-    }
+    public String getKeywords() { return keywords; }
+    public void setKeywords(String keywords) { this.keywords = keywords; }
 
-    public String getPublisher() {
-        return publisher;
-    }
+    public int getCitations() { return citations; }
+    public void setCitations(int citations) { this.citations = citations; }
 
-    public void setPublisher(String publisher) {
-        this.publisher = publisher;
-    }
+    public int getPages() { return pages; }
+    public void setPages(int pages) { this.pages = pages; }
 
-    public String getDoi() {
-        return doi;
-    }
-
-    public void setDoi(String doi) {
-        this.doi = doi;
-    }
-
-    public String getKeywords() {
-        return keywords;
-    }
-
-    public void setKeywords(String keywords) {
-        this.keywords = keywords;
-    }
-
-    public int getCitations() {
-        return citations;
-    }
-
-    public void setCitations(int citations) {
-        this.citations = citations;
-    }
-
-    public int getPages() {
-        return pages;
-    }
-
-    public void setPages(int pages) {
-        this.pages = pages;
-    }
-
-    public LocalDate getDate() {
-        return date;
-    }
-
-    public void setDate(LocalDate date) {
-        this.date = date;
-    }
+    public LocalDate getDate() { return date; }
+    public void setDate(LocalDate date) { this.date = date; }
 }

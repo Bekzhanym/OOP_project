@@ -26,8 +26,7 @@ public class Course implements Subject, Serializable {
     private List<Teacher> instructors = new ArrayList<>();
     private List<Student> enrolledStudents = new ArrayList<>();
     private Mark templateMark;
-    private Lesson lesson;
-    private Room room;
+    private List<Lesson> lessons = new ArrayList<>();    private Room room;
     private String intendedMajor;
     private int intendedYearOfStudy;
     private CourseType courseType = CourseType.ELECTIVE;

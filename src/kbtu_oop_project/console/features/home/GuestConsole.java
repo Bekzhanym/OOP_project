@@ -120,63 +120,89 @@ public final class GuestConsole {
     }
 
     public static User registerNewUser(UniversityDatabase db, Scanner in, UserFactory factory) {
-        ConsoleUi.header("Регистрация — выберите роль");
-        System.out.println("  1 Student   2 Teacher   3 Employee   4 Admin   5 Manager");
-        System.out.println("  6 Research staff   7 Professor   8 Student (4th year)");
-        System.out.print("Роль (1–8): ");
-        Role role = switch (ConsoleUi.trim(in.nextLine())) {
+        boolean isDbEmpty = db.findAllUsers().isEmpty();
+        
+        ConsoleUi.header("Регистрация нового аккаунта");
+        System.out.println("  1 — Студент (Bachelor)");
+        System.out.println("  2 — Преподаватель (Teacher)");
+        if (isDbEmpty) {
+            System.out.println("  3 — Администратор (Первоначальная настройка системы)");
+        }
+        
+        System.out.print("Выберите тип аккаунта: ");
+        String choice = ConsoleUi.trim(in.nextLine());
+        
+        Role role = switch (choice) {
             case "1" -> Role.STUDENT;
             case "2" -> Role.TEACHER;
-            case "3" -> Role.EMPLOYEE;
-            case "4" -> Role.ADMIN;
-            case "5" -> Role.MANAGER;
-            case "6" -> Role.RESEARCH_STAFF;
-            case "7" -> Role.PROFESSOR;
-            case "8" -> Role.STUDENT_4TH_YEAR;
+            case "3" -> isDbEmpty ? Role.ADMIN : null;
             default -> null;
         };
+
         if (role == null) {
-            ConsoleUi.printlnErr("Неверный код роли.");
+            ConsoleUi.printlnErr("Регистрация данной роли запрещена или некорректна.");
             return null;
         }
+
         User user = factory.createUser(role);
-        String email = ConsoleUi.promptRequired(in, "Email (для входа)");
+        
+        String email = ConsoleUi.promptRequired(in, "Email (логин)");
         if (db.findByEmailIgnoreCase(email).isPresent()) {
-            ConsoleUi.printlnErr("Этот email уже занят.");
+            ConsoleUi.printlnErr("Пользователь с таким email уже существует.");
             return null;
         }
         user.setEmail(email);
-        user.setId(ConsoleUi.promptRequired(in, "ID"));
+        user.setId(ConsoleUi.promptRequired(in, "ID (например, 22B...)"));
         user.setFirstName(ConsoleUi.promptRequired(in, "Имя"));
         user.setLastName(ConsoleUi.promptRequired(in, "Фамилия"));
         user.setPassword(ConsoleUi.promptRequired(in, "Пароль"));
 
-        if (user instanceof Student studentAccount) {
-            System.out.print("Student ID (Enter = совпадает с ID аккаунта): ");
-            String sid = ConsoleUi.trim(in.nextLine());
-            studentAccount.setStudentId(sid.isEmpty() ? user.getId() : sid);
-            if (role == Role.STUDENT_4TH_YEAR) {
-                studentAccount.setYearOfStudy(4);
+        if (user instanceof Student student) {
+            student.setStudentId(user.getId());
+            System.out.print("Укажите курс обучения (1-4): ");
+            int year = ConsoleUi.promptInt(in, "Курс", 1, 4);
+            student.setYearOfStudy(year);
+            
+            if (year == 4) {
+                System.out.println("ℹ️ Вы зарегистрированы как студент 4-го курса. Вам потребуется научный руководитель.");
             }
         }
 
         if (user instanceof Teacher teacher) {
-            teacher.setHIndex(ConsoleUi.promptInt(in, "H-index", 0, 500));
-            teacher.setDepartment(ConsoleUi.promptRequired(in, "Кафедра / отдел"));
+            teacher.setDepartment(ConsoleUi.promptRequired(in, "Кафедра (SITE, ISE и др.)"));
+            
+            System.out.println("Выберите должность:");
+            System.out.println("  1 — Tutor  2 — Lector  3 — Senior Lector  4 — Professor");
+            int titleChoice = ConsoleUi.promptInt(in, "Должность", 1, 4);
+            
+            teacher.setTitle(switch (titleChoice) {
+                case 1 -> TeacherTitle.TUTOR;
+                case 2 -> TeacherTitle.LECTOR;
+                case 3 -> TeacherTitle.SENIOR_LECTOR;
+                default -> TeacherTitle.PROFESSOR;
+            });
+
+            if (teacher.getTitle() == TeacherTitle.PROFESSOR) {
+                System.out.println("ℹ️ Профессора автоматически являются исследователями.");
+                teacher.setHIndex(ConsoleUi.promptInt(in, "Введите начальный h-index", 0, 100));
+            } else {
+                System.out.print("Является ли преподаватель активным исследователем? (y/n): ");
+                if ("y".equalsIgnoreCase(ConsoleUi.trim(in.nextLine()))) {
+                    teacher.setHIndex(ConsoleUi.promptInt(in, "Введите h-index", 0, 100));
+                }
+            }
         }
 
-        if (user instanceof ResearchStaff rs) {
-            rs.setHIndex(ConsoleUi.promptInt(in, "H-index", 0, 500));
-        }
-
-        db.add(user);
-        db.recordAudit("REGISTER " + UserRoleFormatter.describe(user) + " " + email.trim());
+       db.add(user);
+        db.recordAudit("REGISTER " + user.getClass().getSimpleName() + " " + email.trim());
+        
         Log lg = new Log();
         lg.setAction("register");
         lg.setUserId(user.getId());
         lg.setTimestamp(LocalDate.now());
         db.recordStructured(lg);
-        ConsoleUi.printlnOk("Учётная запись создана: " + UserRoleFormatter.describe(user));
+        
+        ConsoleUi.printlnOk("Регистрация успешно завершена.");
         return user;
     }
 

@@ -1,11 +1,12 @@
 package kbtu_oop_project.console.common;
 
-import kbtu_oop_project.domain.sort.PaperComparator;
+import kbtu_oop_project.domain.features.research.ResearchPaper;
 import kbtu_oop_project.domain.sort.ResearchPaperComparators;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Scanner;
 import java.util.stream.Collectors;
@@ -13,6 +14,7 @@ import java.util.stream.Collectors;
 public final class ConsoleUi {
 
     private ConsoleUi() {
+        throw new UnsupportedOperationException("Это утилитарный класс, его нельзя инстанцировать.");
     }
 
     public static String trim(String s) {
@@ -21,7 +23,7 @@ public final class ConsoleUi {
 
     public static void header(String title) {
         System.out.println();
-        System.out.println("─── " + title + " ───");
+        System.out.println("───────  " + title.toUpperCase() + "  ───────");
     }
 
     public static void printlnOk(String msg) {
@@ -29,7 +31,7 @@ public final class ConsoleUi {
     }
 
     public static void printlnErr(String msg) {
-        System.out.println("[!] " + msg);
+        System.out.println("[!] Ошибка: " + msg);
     }
 
     public static String promptRequired(Scanner in, String label) {
@@ -39,53 +41,53 @@ public final class ConsoleUi {
             if (!v.isEmpty()) {
                 return v;
             }
-            System.out.println("(обязательное поле)");
+            System.out.println("(Ошибка: это поле обязательно для заполнения)");
         }
     }
 
     public static int promptInt(Scanner in, String label, int min, int max) {
         while (true) {
-            System.out.print(label + ": ");
+            System.out.print(label + " (" + min + "-" + max + "): ");
             String line = trim(in.nextLine());
             try {
                 int v = Integer.parseInt(line);
                 if (v >= min && v <= max) {
                     return v;
                 }
-                System.out.println("От " + min + " до " + max);
+                System.out.println("Ошибка: число должно быть в диапазоне от " + min + " до " + max);
             } catch (NumberFormatException e) {
-                System.out.println("Введите число.");
+                System.out.println("Ошибка: введите корректное целое число.");
             }
         }
     }
 
     public static double promptDouble(Scanner in, String label, double min, double max) {
         while (true) {
-            System.out.print(label + ": ");
-            String line = trim(in.nextLine());
+            System.out.print(label + " (через точку, например 3.67): ");
+            String line = trim(in.nextLine()).replace(',', '.');
             try {
                 double v = Double.parseDouble(line);
                 if (v >= min && v <= max) {
                     return v;
                 }
-                System.out.println("От " + min + " до " + max);
+                System.out.println("Ошибка: значение должно быть от " + min + " до " + max);
             } catch (NumberFormatException e) {
-                System.out.println("Введите число.");
+                System.out.println("Ошибка: введите корректное дробное число.");
             }
         }
     }
 
-    public static LocalDate promptDate(Scanner in, String label) {
+    public static LocalDate promptDate(Scanner in, String label, LocalDate defaultDate) {
         while (true) {
-            System.out.print(label + ": ");
+            System.out.print(label + " (ГГГГ-ММ-ДД) [Нажмите Enter для значения по умолчанию]: ");
             String line = trim(in.nextLine());
             if (line.isEmpty()) {
-                return LocalDate.now();
+                return defaultDate;
             }
             try {
                 return LocalDate.parse(line);
             } catch (DateTimeParseException e) {
-                System.out.println("Формат yyyy-MM-dd или пусто.");
+                System.out.println("Ошибка: неверный формат. Используйте шаблон YYYY-MM-DD (например, 2026-05-17).");
             }
         }
     }
@@ -101,10 +103,14 @@ public final class ConsoleUi {
                 .collect(Collectors.toList());
     }
 
-    public static PaperComparator choosePaperComparator(Scanner in) {
-        System.out.println("Сортировка статей: 1 — дата, 2 — цитирования, 3 — страницы");
+    public static Comparator<ResearchPaper> choosePaperComparator(Scanner in) {
+        header("Выбор критерия сортировки статей");
+        System.out.println("1 ── По дате публикации");
+        System.out.println("2 ── По количеству цитирований");
+        System.out.println("3 ── По объёму (количеству страниц)");
+        
         while (true) {
-            System.out.print("Выбор (1/2/3): ");
+            System.out.print("Ваш выбор (1/2/3): ");
             String c = trim(in.nextLine());
             switch (c) {
                 case "1":
@@ -114,7 +120,7 @@ public final class ConsoleUi {
                 case "3":
                     return ResearchPaperComparators.BY_PAGES;
                 default:
-                    System.out.println("Только 1, 2 или 3.");
+                    System.out.println("Ошибка: выберите пункт 1, 2 или 3.");
             }
         }
     }

@@ -28,11 +28,12 @@ public final class SessionDispatcher {
         boolean logout = false;
         while (!logout) {
             ConsoleUi.header("Личный кабинет — " + UserRoleFormatter.describe(user));
-            System.out.println(user.getFirstName() + " " + user.getLastName()
-                    + " <" + user.getEmail() + ">");
-            System.out.println();
+            System.out.println("  Пользователь: " + user.getFirstName() + " " + user.getLastName());
+            System.out.println("  Email: <" + user.getEmail() + ">");
+            System.out.println("────────────────────────────────────────────────");
 
             logout = dispatchSession(user, db, in);
+            
             if (logout) {
                 db.recordAudit("LOGOUT " + safeEmail(user));
                 Log lg = new Log();
@@ -42,7 +43,7 @@ public final class SessionDispatcher {
                 db.recordStructured(lg);
             }
         }
-        ConsoleUi.printlnOk("Вы вышли из аккаунта.");
+        ConsoleUi.printlnOk("Вы успешно вышли из системы.");
     }
 
     private static String safeEmail(User user) {
@@ -53,19 +54,27 @@ public final class SessionDispatcher {
         if (user instanceof Admin adminUser) {
             return AdminConsole.adminMenu(adminUser, db, in);
         }
+        
         if (user instanceof Teacher teacher) {
             return TeacherConsole.teacherMenu(teacher, db, in);
         }
+        
         if (user instanceof Student student) {
             return StudentConsole.studentMenu(student, db, in);
         }
+        
         if (user instanceof Manager manager) {
             return ManagerConsole.managerMenu(manager, db, in);
         }
+        
         if (user instanceof Employee employee) {
-            return GenericEmployeeConsole.menu(employee, db, in);
+            GenericEmployeeConsole.start(employee, db, in);
+            
+            System.out.print("Выйти из системы? (y/n): ");
+            return "y".equalsIgnoreCase(ConsoleUi.trim(in.nextLine()));
         }
-        ConsoleUi.printlnErr("Неизвестный тип пользователя.");
+        
+        ConsoleUi.printlnErr("Критическая ошибка: Архитектурный тип учетной записи не распознан.");
         return true;
     }
 }
