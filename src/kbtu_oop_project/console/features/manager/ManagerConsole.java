@@ -46,6 +46,7 @@ public final class ManagerConsole {
         System.out.println("  6 — Рейтинг преподавателей (Алфавитный список)");
         System.out.println("  7 — Добавить новый курс в каталог");
         System.out.println("  8 — Управление новостной лентой");
+        System.out.println("  9 — Добавить занятие (расписание) к курсу 📅"); 
         System.out.println("  0 — Выйти из аккаунта");
         System.out.print("Выбор: ");
         
@@ -59,9 +60,42 @@ public final class ManagerConsole {
             case "6" -> { printTeachersAlphabeticalWithRatings(db); yield false; }
             case "7" -> { createCourseCatalogEntry(manager, db, in); yield false; }
             case "8" -> { universityNewsFlow(manager, db, in); yield false; }
+            case "9" -> { addLessonToCourseFlow(db, in); yield false; } // ДОБАВЛЕНО
             case "0" -> true;
             default -> { ConsoleUi.printlnErr("Неизвестная команда."); yield false; }
         };
+    }
+
+    private static void addLessonToCourseFlow(UniversityDatabase db, Scanner in) {
+        ConsoleUi.header("УПРАВЛЕНИЕ РАСПИСАНИЕМ КУРСА");
+        String courseCode = ConsoleUi.promptRequired(in, "Введите код курса (например, CS 301)").toUpperCase().trim();
+        
+        Optional<Course> courseOpt = db.findCourseByCode(courseCode);
+        if (courseOpt.isEmpty()) {
+            ConsoleUi.printlnErr("Курс с кодом " + courseCode + " не найден в реестре.");
+            return;
+        }
+        Course course = courseOpt.get();
+
+        System.out.println("Выберите тип занятия: 1 — Lecture (Лекция)  2 — Practice (Практика)");
+        String lt = ConsoleUi.trim(in.nextLine());
+        LessonType type = "1".equals(lt) ? LessonType.LECTURE : LessonType.PRACTICE;
+
+        int dow = ConsoleUi.promptInt(in, "День недели (1=Пн, 2=Вт, 3=Ср, 4=Чт, 5=Пт, 6=Сб, 7=Вс)", 1, 7);
+        int sh = ConsoleUi.promptInt(in, "Час начала занятия (8-20)", 8, 20);
+        int sm = ConsoleUi.promptInt(in, "Минуты начала занятия (0-59)", 0, 59);
+
+        Lesson lesson = new Lesson();
+        lesson.setType(type);
+        lesson.setDay(DayOfWeek.of(dow));
+        lesson.setStartTime(LocalTime.of(sh, sm));
+        
+        lesson.setEndTime(LocalTime.of(sh, sm).plusMinutes(90)); 
+
+        course.addLesson(lesson);
+        db.recordAudit("MANAGER_ADD_LESSON " + courseCode + " [" + type + " " + DayOfWeek.of(dow) + " " + sh + ":" + sm + "]");
+        
+        ConsoleUi.printlnOk("Новое занятие успешно добавлено в расписание курса " + course.getCourseName() + "!");
     }
 
     private static void pendingRegistrationFlow(Manager manager, UniversityDatabase db, Scanner in) {
@@ -111,9 +145,12 @@ public final class ManagerConsole {
         String email = pend.getStudentEmail();
         String code = pend.getCourseCode();
 
+        var regOffice = kbtu_oop_project.domain.features.registration.RegistrationOffice.getInstance();
+
         if (cmd == 'a') {
             try {
                 if (db.approvePendingCourseRegistration(email, code)) {
+                    regOffice.removeRequest(email, code);
                     ConsoleUi.printlnOk("Заявка успешно одобрена. Студент зачислен на курс.");
                 } else {
                     ConsoleUi.printlnErr("Ошибка: Не удалось провести транзакцию зачисления.");
@@ -123,6 +160,7 @@ public final class ManagerConsole {
             }
         } else if (cmd == 'r') {
             if (db.rejectPendingCourseRegistration(email, code)) {
+                regOffice.removeRequest(email, code);
                 ConsoleUi.printlnOk("Заявка успешно отклонена.");
             } else {
                 ConsoleUi.printlnErr("Заявка не найдена.");

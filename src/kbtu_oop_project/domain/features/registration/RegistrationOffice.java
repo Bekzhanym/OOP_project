@@ -9,12 +9,30 @@ import java.util.concurrent.CopyOnWriteArrayList;
 
 public class RegistrationOffice {
 
+    private static final RegistrationOffice INSTANCE = new RegistrationOffice();
+
     private final List<PendingCourseRegistration> registrationQueue = new CopyOnWriteArrayList<>();
     private final List<Log> systemLogs = new ArrayList<>();
     
     private RegistrationPeriod currentPeriod = RegistrationPeriod.NONE;
 
     public RegistrationOffice() {}
+
+    public static RegistrationOffice getInstance() {
+        return INSTANCE;
+    }
+
+    public synchronized boolean removeRequest(String email, String courseCode) {
+        if (email == null || courseCode == null) return false;
+        return registrationQueue.removeIf(p -> 
+            p.getStudentEmail().equalsIgnoreCase(email.trim()) && 
+            p.getCourseCode().equalsIgnoreCase(courseCode.trim())
+        );
+    }
+
+    public List<PendingCourseRegistration> getRegistrationQueue() {
+        return registrationQueue;
+    }
 
     public synchronized boolean addRegistrationRequest(PendingCourseRegistration request, boolean isMinorCourse) {
         if (request == null) return false;

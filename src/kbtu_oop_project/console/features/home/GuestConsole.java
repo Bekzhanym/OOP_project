@@ -19,9 +19,8 @@ public final class GuestConsole {
         while (true) {
             ConsoleUi.header("ДОБРО ПОЖАЛОВАТЬ В СИСТЕМУ ПЛАТОНУС КБТУ");
             System.out.println("1. Войти в систему (Авторизация)");
-            System.out.println("2. Регистрация нового пользователя");
-            System.out.println("3. Выйти из симулятора");
-            System.out.print("\nВыберите действие (1-3): ");
+            System.out.println("2. Выйти из симулятора");
+            System.out.print("\nВыберите действие (1-2): ");
 
             String choice = ConsoleUi.trim(in.nextLine());
 
@@ -32,11 +31,10 @@ public final class GuestConsole {
                         return authenticatedUser;
                     }
                 }
-                case "2" -> handleRegistration(db, in);
-                case "3" -> {
+                case "2" -> {
                     return null;
                 }
-                default -> ConsoleUi.printlnErr("Неверный ввод! Пожалуйста, выберите пункт 1, 2 или 3.");
+                default -> ConsoleUi.printlnErr("Неверный ввод! Пожалуйста, выберите пункт 1 или 2.");
             }
         }
     }

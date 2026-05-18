@@ -37,7 +37,8 @@ public final class AdminConsole {
             System.out.println("  7 — Журнал аудита и структурированные Logs");
             System.out.println("  8 — Сменить пароль пользователя");
             System.out.println("  9 — Назначить научного руководителя студенту 4 курса");
-            System.out.println(" 10 — Изменить роль пользователя (по умолчанию — студент)");
+            System.out.println(" 10 — Изменить роль существующего пользователя");
+            System.out.println(" 11 — Зарегистрировать (создать) нового пользователя ➕"); // ДОБАВЛЕНО
             System.out.println("  0 — Выйти из аккаунта");
             
             System.out.print("Выбор: ");
@@ -64,6 +65,7 @@ public final class AdminConsole {
             case "8" -> resetPasswordFlow(db, in);
             case "9" -> assignFourthYearSupervisorFlow(db, in);
             case "10" -> assignUserRoleFlow(db, in);
+            case "11" -> createNewUserFlow(db, in); // ДОБАВЛЕНО
             default -> ConsoleUi.printlnErr("Неизвестная команда. Повторите ввод.");
         }
     }
@@ -207,6 +209,89 @@ public final class AdminConsole {
             
         } catch (SupervisorQualificationException ex) {
             ConsoleUi.printlnErr("Отклонено академической системой КБТУ: " + ex.getMessage());
+        }
+    }
+
+    // ДОБАВЛЕНО: ФЛОУ ПРЯМОЙ РЕГИСТРАЦИИ ПОЛЬЗОВАТЕЛЕЙ АДМИНИСТРАТОРОМ
+    private static void createNewUserFlow(UniversityDatabase db, Scanner in) {
+        ConsoleUi.header("РЕГИСТРАЦИЯ НОВОГО ПОЛЬЗОВАТЕЛЯ");
+        
+        String email = "";
+        while (true) {
+            System.out.print("Введите корпоративный Email (@kbtu.kz): ");
+            email = ConsoleUi.trim(in.nextLine()).toLowerCase();
+            if (email.endsWith("@kbtu.kz") && email.length() > 8) {
+                if (db.findByEmailIgnoreCase(email).isPresent()) {
+                    ConsoleUi.printlnErr("[Ошибка] Пользователь с таким Email уже существует!");
+                    return;
+                }
+                break;
+            } else {
+                ConsoleUi.printlnErr("[Ошибка] Email должен принадлежать домену @kbtu.kz!");
+            }
+        }
+
+        System.out.print("Введите ID (например, S-02, T-01, M-03): ");
+        String id = ConsoleUi.trim(in.nextLine()).toUpperCase();
+        System.out.print("Введите Имя: ");
+        String firstName = ConsoleUi.trim(in.nextLine());
+        System.out.print("Введите Фамилию: ");
+        String lastName = ConsoleUi.trim(in.nextLine());
+        System.out.print("Придумайте пароль: ");
+        String password = ConsoleUi.trim(in.nextLine());
+
+        System.out.println("\nВыберите базовую академическую роль:");
+        System.out.println("1 — Студент (1-3 курс)");
+        System.out.println("2 — Студент 4 курса");
+        System.out.println("3 — Преподаватель / Профессор");
+        System.out.println("4 — Менеджер");
+        System.out.println("5 — Администратор");
+        System.out.print("Выбор: ");
+        String roleChoice = ConsoleUi.trim(in.nextLine());
+
+        Role role = Role.STUDENT;
+        int studentYear = 1;
+        ManagerType managerType = ManagerType.DEPARTMENT;
+        TeacherTitle teacherTitle = TeacherTitle.LECTOR;
+
+        switch (roleChoice) {
+            case "1" -> {
+                role = Role.STUDENT;
+                studentYear = ConsoleUi.promptInt(in, "Укажите курс (1-3)", 1, 3);
+            }
+            case "2" -> role = Role.STUDENT_4TH_YEAR;
+            case "3" -> {
+                role = Role.TEACHER;
+                teacherTitle = promptTeacherTitle(in);
+            }
+            case "4" -> {
+                role = Role.MANAGER;
+                managerType = promptManagerType(in);
+            }
+            case "5" -> role = Role.ADMIN;
+            default -> {
+                System.out.println("По умолчанию выбрана роль: Студент (1 курс)");
+            }
+        }
+
+        try {
+            // Создаем сущность через фабрику проекта
+            User newUser = kbtu_oop_project.application.factory.UserFactory.createUser(
+                    role, id, firstName + " " + lastName, email, password
+            );
+
+            // Сохраняем в единую UniversityDatabase
+            db.addUser(newUser);
+
+            // Твоя внутренняя логика инициализации специфичных полей (курса, титулов, типа менеджера)
+            db.assignUserRole(email, role, studentYear, managerType, teacherTitle);
+
+            db.recordStructured(new Log(id, "admin_create_user:" + role.name()));
+            db.recordAudit("ADMIN_CREATE_USER " + email + " as " + role.name());
+
+            ConsoleUi.printlnOk("\n[УСПЕХ] Пользователь успешно создан и настроен в базе Платонуса!");
+        } catch (Exception ex) {
+            ConsoleUi.printlnErr("Ошибка создания пользователя фабрикой: " + ex.getMessage());
         }
     }
 

@@ -41,6 +41,14 @@ public final class TeacherConsole {
         return u;
     }
 
+    private static Teacher getTargetTeacher(Teacher teacher) {
+        User core = extractCoreUser(teacher);
+        if (core instanceof Teacher t) {
+            return t;
+        }
+        return teacher;
+    }
+
     public static boolean teacherMenu(Teacher teacher, UniversityDatabase db, Scanner in) {
         User coreTeacher = extractCoreUser(teacher);
         ConsoleUi.header("Панель преподавателя: " + coreTeacher.getFirstName() + " " + coreTeacher.getLastName());
@@ -81,13 +89,19 @@ public final class TeacherConsole {
     private static void printProfile(Teacher teacher) {
         ConsoleUi.header("Профиль преподавателя");
         User core = extractCoreUser(teacher);
+        Teacher target = getTargetTeacher(teacher);
+        
         System.out.println("Преподаватель: " + core.getFirstName() + " " + core.getLastName());
-        System.out.println("Кафедра: " + teacher.getDepartment());
-        System.out.println("Ученое звание / Title: " + (teacher.getTitle() != null ? teacher.getTitle() : "Нет"));
-        System.out.println("Индекс Хирша (h-index): " + teacher.getHIndex());
-        System.out.println("Ведёт курсов: " + teacher.getTaughtCourses().size());
-        for (Course c : teacher.getTaughtCourses()) {
-            System.out.println("   • " + c.getCourseCode() + " — " + c.getCourseName());
+        System.out.println("Кафедра: " + target.getDepartment());
+        System.out.println("Ученое звание / Title: " + (target.getTitle() != null ? target.getTitle() : "Нет"));
+        System.out.println("Индекс Хирша (h-index): " + target.getHIndex());
+        
+        var courses = target.getTaughtCourses();
+        System.out.println("Ведёт курсов: " + (courses != null ? courses.size() : 0));
+        if (courses != null) {
+            for (Course c : courses) {
+                System.out.println("   • " + c.getCourseCode() + " — " + c.getCourseName());
+            }
         }
     }
 
@@ -109,7 +123,7 @@ public final class TeacherConsole {
         System.out.print("Ключевые слова (опционально): ");
         String keywords = ConsoleUi.trim(in.nextLine());
         
-        int citations = ConsoleUi.promptInt(in, "Количество цитирований", 0, 1_000_000);
+        int citations = ConsoleUi.promptInt(in, "Количество цитирования", 0, 1_000_000);
         int pages = ConsoleUi.promptInt(in, "Количество страниц", 1, 10_000);
         LocalDate pubDate = ConsoleUi.promptDate(in, "Дата yyyy-MM-dd (Enter = сегодня)", LocalDate.now());
         
@@ -128,10 +142,13 @@ public final class TeacherConsole {
         db.findTopResearcherByTotalCitations().ifPresentOrElse(
                 r -> {
                     User coreR = extractCoreUser((User) r);
+                    int totalCitations = 0;
+                    if (r.getPapers() != null) {
+                        totalCitations = r.getPapers().stream().mapToInt(ResearchPaper::getCitations).sum();
+                    }
                     System.out.println("Топ по цитированию: "
                             + coreR.getFirstName() + " " + coreR.getLastName()
-                            + " | Общая сумма цитирований = "
-                            + r.getPapers().stream().mapToInt(ResearchPaper::getCitations).sum());
+                            + " | Общая сумма цитирований = " + totalCitations);
                 },
                 () -> ConsoleUi.printlnErr("В базе данных нет зарегистрированных исследователей."));
     }
@@ -141,29 +158,36 @@ public final class TeacherConsole {
         db.findTopResearcherByCitationsInYear(year).ifPresentOrElse(
                 r -> {
                     User coreR = extractCoreUser((User) r);
+                    int yearCitations = 0;
+                    if (r.getPapers() != null) {
+                        yearCitations = r.getPapers().stream()
+                                .filter(p -> p.getDate() != null && p.getDate().getYear() == year)
+                                .mapToInt(ResearchPaper::getCitations).sum();
+                    }
                     System.out.println("Топ за " + year + " год: "
                             + coreR.getFirstName() + " " + coreR.getLastName()
-                            + " | сумма цитирований за указанный год = "
-                            + r.getPapers().stream()
-                            .filter(p -> p.getDate() != null && p.getDate().getYear() == year)
-                            .mapToInt(ResearchPaper::getCitations).sum());
+                            + " | сумма цитирований за указанный год = " + yearCitations);
                 },
                 () -> ConsoleUi.printlnErr("Нет подтвержденных научных публикаций за " + year + " год."));
     }
 
     private static void printEnrolledStudents(Teacher teacher) {
         ConsoleUi.header("Студенты на ваших курсах");
-        if (teacher.getTaughtCourses().isEmpty()) {
+        Teacher target = getTargetTeacher(teacher);
+        
+        var taughtCourses = target.getTaughtCourses();
+        if (taughtCourses == null || taughtCourses.isEmpty()) {
             System.out.println("(у вас нет назначенных курсов)");
             return;
         }
-        for (Course c : teacher.getTaughtCourses()) {
+        for (Course c : taughtCourses) {
             System.out.println(c.getCourseCode() + " — " + c.getCourseName());
-            if (c.getEnrolledStudents().isEmpty()) {
+            var enrolled = c.getEnrolledStudents();
+            if (enrolled == null || enrolled.isEmpty()) {
                 System.out.println("   (нет записавшихся студентов)");
                 continue;
             }
-            for (Student st : c.getEnrolledStudents()) {
+            for (Student st : enrolled) {
                 User coreSt = extractCoreUser(st);
                 System.out.println("   • ID: " + st.getStudentId() + " | " + coreSt.getFirstName() + " " + coreSt.getLastName());
             }
@@ -173,7 +197,7 @@ public final class TeacherConsole {
     private static void printTeacherInbox(UniversityDatabase db, String email) {
         ConsoleUi.header("Внутренняя почта (Входящие)");
         List<EmployeeMessage> inbox = db.messagesForRecipientEmailIgnoreCase(email);
-        if (inbox.isEmpty()) {
+        if (inbox == null || inbox.isEmpty()) {
             System.out.println("(нет новых сообщений)");
             return;
         }
@@ -219,6 +243,7 @@ public final class TeacherConsole {
         System.out.println("  0 — Вернуться");
         System.out.print("Выбор: ");
         
+        Teacher target = getTargetTeacher(teacher);
         switch (ConsoleUi.trim(in.nextLine())) {
             case "1" -> {
                 System.out.print("Научная тема проекта (Topic): ");
@@ -228,25 +253,27 @@ public final class TeacherConsole {
                     break;
                 }
                 ResearchProject p = new ResearchProject(topic, teacher); 
-                teacher.addResearchProject(p);
+                target.addResearchProject(p);
                 db.registerGlobalResearchProject(p);
                 ConsoleUi.printlnOk("Проект успешно зарегистрирован и открыт для вступления (Research Group).");
             }
             case "2" -> {
                 ConsoleUi.header("Мои исследовательские проекты");
-                if (teacher.getResearchProjects().isEmpty()) {
+                var projects = target.getResearchProjects();
+                if (projects == null || projects.isEmpty()) {
                     System.out.println("(вы не курируете научные проекты)");
                     break;
                 }
-                for (ResearchProject rp : teacher.getResearchProjects()) {
+                for (ResearchProject rp : projects) {
                     String t = rp.getTopic() != null ? rp.getTopic() : "(тема не указана)";
-                    System.out.println(" • ТЕМА: " + t + " | Активных участников: " + rp.getParticipants().size());
+                    int partSize = rp.getParticipants() != null ? rp.getParticipants().size() : 0;
+                    System.out.println(" • ТЕМА: " + t + " | Активных участников: " + partSize);
                 }
             }
             case "3" -> {
                 ConsoleUi.header("Общеуниверситетский каталог проектов");
                 List<ResearchProject> globalList = db.getResearchProjectsUnmodifiable();
-                if (globalList.isEmpty()) {
+                if (globalList == null || globalList.isEmpty()) {
                     System.out.println("(в университете нет активных проектов)");
                     break;
                 }
@@ -261,8 +288,9 @@ public final class TeacherConsole {
     }
 
     private static Course pickTaughtCourse(Teacher teacher, Scanner in) {
-        List<Course> list = teacher.getTaughtCourses();
-        if (list.isEmpty()) {
+        Teacher target = getTargetTeacher(teacher);
+        List<Course> list = target.getTaughtCourses();
+        if (list == null || list.isEmpty()) {
             ConsoleUi.printlnErr("За вами не закреплено ни одного учебного курса.");
             return null;
         }
@@ -342,13 +370,18 @@ public final class TeacherConsole {
 
     private static void putMarksFlow(Teacher teacher, UniversityDatabase db, Scanner in) {
         ConsoleUi.header("Выставление промежуточных и итоговых баллов");
-        System.out.print("Введите Student ID: ");
-        String sid = ConsoleUi.trim(in.nextLine());
-        Student student = db.findStudentByStudentId(sid).orElse(null);
-        if (student == null) {
+        
+        String sid = ConsoleUi.promptKbtuId(in, "Введите Student ID");
+        
+        Student rawStudent = db.findStudentByStudentId(sid).orElse(null);
+        if (rawStudent == null) {
             ConsoleUi.printlnErr("Студент с таким ID не зарегистрирован в базе данных.");
             return;
         }
+        
+        User coreSt = extractCoreUser(rawStudent);
+        Student student = (coreSt instanceof Student) ? (Student) coreSt : rawStudent;
+
         System.out.print("Введите код курса: ");
         String code = ConsoleUi.trim(in.nextLine());
         Course course = db.findCourseByCode(code).orElse(null);
@@ -357,7 +390,17 @@ public final class TeacherConsole {
             return;
         }
 
-        Mark existing = student.getTranscript().getMarkForCourse(course.getCourseCode());
+        Teacher target = getTargetTeacher(teacher);
+        if (target.getTaughtCourses() == null || !target.getTaughtCourses().contains(course)) {
+            ConsoleUi.printlnErr("Вы не являетесь назначенным инструктором для курса: " + course.getCourseCode());
+            return;
+        }
+
+        Mark existing = null;
+        if (student.getTranscript() != null) {
+            existing = student.getTranscript().getMarkForCourse(course.getCourseCode());
+        }
+        
         Mark currentMark = existing != null ? existing : new Mark();
         Mark updatedMark = new Mark();
         updatedMark.setFirstAttestation(currentMark.getFirstAttestation());

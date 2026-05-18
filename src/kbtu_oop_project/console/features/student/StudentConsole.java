@@ -77,13 +77,17 @@ public final class StudentConsole {
         
         System.out.println("Student ID: " + student.getStudentId());
         System.out.println("Текущая нагрузка: " + student.getTotalCredits() + " / " + MAX_ECTS_LIMIT + " ECTS");
-        System.out.println("Записан на курсов: " + student.getEnrolledCourses().size());
         
-        for (Course c : student.getEnrolledCourses()) {
-            var lessons = c.getLessons();
-            String typeInfo = !lessons.isEmpty() && lessons.get(0).getType() != null
-                    ? " [" + lessons.get(0).getType() + "]" : "";
-            System.out.println("   • " + c.getCourseCode() + " — " + c.getCourseName() + " (" + c.getCredits() + " ECTS)" + typeInfo);
+        var enrolled = student.getEnrolledCourses();
+        System.out.println("Записан на курсов: " + (enrolled != null ? enrolled.size() : 0));
+        
+        if (enrolled != null) {
+            for (Course c : enrolled) {
+                var lessons = c.getLessons();
+                String typeInfo = (lessons != null && !lessons.isEmpty() && lessons.get(0).getType() != null)
+                        ? " [" + lessons.get(0).getType() + "]" : "";
+                System.out.println("   • " + c.getCourseCode() + " — " + c.getCourseName() + " (" + c.getCredits() + " ECTS)" + typeInfo);
+            }
         }
         
         if (core instanceof Student4thYear sy && sy.getResearchSupervisor() != null) {
@@ -115,9 +119,20 @@ public final class StudentConsole {
         }
 
         try {
-            kbtu_oop_project.domain.features.misc.RegistrationOffice.getInstance()
-                    .submitRegistrationRequest(student, course, db);
-            ConsoleUi.printlnOk("Заявка успешно отправлена в Office of Registrar.");
+            kbtu_oop_project.domain.features.misc.PendingCourseRegistration request = 
+                    new kbtu_oop_project.domain.features.misc.PendingCourseRegistration(student.getEmail(), course.getCourseCode());
+            
+            boolean isMinorCourse = (course.getCourseType() == kbtu_oop_project.domain.value.CourseType.MINOR);
+
+            var regOffice = kbtu_oop_project.domain.features.registration.RegistrationOffice.getInstance();
+
+            if (regOffice.addRegistrationRequest(request, isMinorCourse)) {
+                db.submitCourseRegistrationRequest(student, course);
+                ConsoleUi.printlnOk("Заявка успешно отправлена в Office of Registrar.");
+            } else {
+                ConsoleUi.printlnErr("Офис Регистрации отклонил операцию (проверьте текущий академический период).");
+            }
+
         } catch (IllegalStateException | IllegalArgumentException ex) {
             ConsoleUi.printlnErr(ex.getMessage());
         }
@@ -164,10 +179,11 @@ public final class StudentConsole {
             case "3" -> findProjectByTopic(student, db, in);
             case "4" -> {
                 ConsoleUi.header("Мои исследовательские проекты");
-                if (student.getResearchProjects().isEmpty()) {
+                var projects = student.getResearchProjects();
+                if (projects == null || projects.isEmpty()) {
                     System.out.println("(вы не состоите в научных группах)");
                 } else {
-                    for (ResearchProject p : student.getResearchProjects()) {
+                    for (ResearchProject p : projects) {
                         System.out.println(" • " + safeTopic(p));
                     }
                 }
@@ -178,11 +194,12 @@ public final class StudentConsole {
     }
 
     private static void joinProjectByIndex(Student student, UniversityDatabase db, Scanner in) {
-        List<ResearchProject> all = new ArrayList<>(db.getResearchProjectsUnmodifiable());
-        if (all.isEmpty()) {
+        var rawProjects = db.getResearchProjectsUnmodifiable();
+        if (rawProjects == null || rawProjects.isEmpty()) {
             ConsoleUi.printlnErr("Нет проектов в каталоге.");
             return;
         }
+        List<ResearchProject> all = new ArrayList<>(rawProjects);
         printProjectCatalog(db);
         int idx = ConsoleUi.promptInt(in, "Номер проекта", 1, all.size()) - 1;
         ResearchProject p = all.get(idx);
@@ -220,39 +237,44 @@ public final class StudentConsole {
     private static void printTeacherRatings(Student student, UniversityDatabase db) {
         Map<String, Integer> ratings = student.getTeacherRatingsSnapshot();
         System.out.println("\nМои рейтинги преподавателям:");
-        if (ratings.isEmpty()) {
+        if (ratings == null || ratings.isEmpty()) {
             System.out.println("   (оценок нет)");
             return;
         }
         for (Map.Entry<String, Integer> e : ratings.entrySet()) {
             String label = db.findByEmailIgnoreCase(e.getKey())
-                    .map(u -> u.getFirstName() + " " + u.getLastName() + " <" + u.getEmail() + ">")
+                    .map(u -> {
+                        User coreU = extractCoreUser(u);
+                        return coreU.getFirstName() + " " + coreU.getLastName() + " <" + coreU.getEmail() + ">";
+                    })
                     .orElse("<" + e.getKey() + ">");
             System.out.println("   • " + label + " → " + "★".repeat(e.getValue()) + " (" + e.getValue() + ")");
         }
     }
 
     private static String safeTopic(ResearchProject p) {
-        return p.getTopic() != null ? p.getTopic() : "(без темы)";
+        return p != null && p.getTopic() != null ? p.getTopic() : "(без темы)";
     }
 
     private static void printProjectCatalog(UniversityDatabase db) {
         ConsoleUi.header("Каталог");
-        List<ResearchProject> all = new ArrayList<>(db.getResearchProjectsUnmodifiable());
-        if (all.isEmpty()) {
+        var rawProjects = db.getResearchProjectsUnmodifiable();
+        if (rawProjects == null || rawProjects.isEmpty()) {
             System.out.println("(пусто — попросите преподавателя создать проект)");
             return;
         }
+        List<ResearchProject> all = new ArrayList<>(rawProjects);
         for (int i = 0; i < all.size(); i++) {
             ResearchProject p = all.get(i);
-            System.out.println((i + 1) + ") " + safeTopic(p) + " | участников: " + p.getParticipants().size());
+            int partSize = (p.getParticipants() != null) ? p.getParticipants().size() : 0;
+            System.out.println((i + 1) + ") " + safeTopic(p) + " | участников: " + partSize);
         }
     }
 
     private static void printUniversityNews(UniversityDatabase db) {
         ConsoleUi.header("Новости");
         List<String> lines = db.getNewsLinesView();
-        if (lines.isEmpty()) {
+        if (lines == null || lines.isEmpty()) {
             System.out.println("(пусто)");
             return;
         }
@@ -287,15 +309,17 @@ public final class StudentConsole {
         String cc = ConsoleUi.trim(in.nextLine());
         db.findCourseByCode(cc).ifPresentOrElse(c -> {
             ConsoleUi.header("Преподаватели: " + c.getCourseCode());
-            if (c.getInstructors().isEmpty()) {
+            var instructors = c.getInstructors();
+            if (instructors == null || instructors.isEmpty()) {
                 System.out.println("(не назначены)");
                 return;
             }
-            for (Teacher t : c.getInstructors()) {
-                User coreT = extractCoreUser(t);
+            for (Teacher t : instructors) {
+                User coreT = extractCoreUser((User) t);
+                Teacher targetTeacher = (coreT instanceof Teacher) ? (Teacher) coreT : t;
                 System.out.println(" • " + coreT.getFirstName() + " " + coreT.getLastName()
                         + " | " + coreT.getEmail()
-                        + " | title=" + (t.getTitle() != null ? t.getTitle().name() : "—"));
+                        + " | title=" + (targetTeacher.getTitle() != null ? targetTeacher.getTitle().name() : "—"));
             }
         }, () -> ConsoleUi.printlnErr("Курс не найден."));
     }

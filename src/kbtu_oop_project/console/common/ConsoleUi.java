@@ -9,9 +9,12 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Scanner;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 public final class ConsoleUi {
+
+    private static final Pattern KBTU_ID_PATTERN = Pattern.compile("^\\d{2}[B_M_D_T_F]\\d{6}$");
 
     private ConsoleUi() {
         throw new UnsupportedOperationException("Это утилитарный класс, его нельзя инстанцировать.");
@@ -32,6 +35,28 @@ public final class ConsoleUi {
 
     public static void printlnErr(String msg) {
         System.out.println("[!] Ошибка: " + msg);
+    }
+
+    /**
+     * Проверяет строку на соответствие маске ID КБТУ (например, 24B777777)
+     */
+    public static boolean isValidKbtuId(String id) {
+        if (id == null) return false;
+        return KBTU_ID_PATTERN.matcher(id.trim()).matches();
+    }
+
+    /**
+     * Запрашивает ID КБТУ до тех пор, пока не будет введено значение нужного формата
+     */
+    public static String promptKbtuId(Scanner in, String label) {
+        while (true) {
+            System.out.print(label + " (например, 24B777777): ");
+            String id = trim(in.nextLine());
+            if (isValidKbtuId(id)) {
+                return id;
+            }
+            printlnErr("Неверный формат ID КБТУ! Шаблон: 2 цифры года + буква (B/M/D) + 6 цифр.");
+        }
     }
 
     public static String promptRequired(Scanner in, String label) {
@@ -108,7 +133,7 @@ public final class ConsoleUi {
         System.out.println("1 ── По дате публикации");
         System.out.println("2 ── По количеству цитирований");
         System.out.println("3 ── По объёму (количеству страниц)");
-        System.out.println("4 ── По длине названия статьи"); // Наш новый пункт!
+        System.out.println("4 ── По длине названия статьи");
         
         while (true) {
             System.out.print("Ваш выбор (1/2/3/4): ");
@@ -117,7 +142,7 @@ public final class ConsoleUi {
                 case "1" -> { return ResearchPaperComparators.BY_DATE; }
                 case "2" -> { return ResearchPaperComparators.BY_CITATIONS; }
                 case "3" -> { return ResearchPaperComparators.BY_PAGES; }
-                case "4" -> { return ResearchPaperComparators.BY_TITLE_LENGTH; } // Используем его!
+                case "4" -> { return ResearchPaperComparators.BY_TITLE_LENGTH; }
                 default -> System.out.println("Ошибка: выберите пункт 1, 2, 3 или 4.");
             }
         }
