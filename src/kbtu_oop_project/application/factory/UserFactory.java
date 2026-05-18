@@ -19,7 +19,7 @@ public final class UserFactory {
             case STUDENT -> { Student s = new Student(); s.setYearOfStudy(1); yield s; }
             case STUDENT_4TH_YEAR -> new Student4thYear();
             case TEACHER -> new Teacher();
-            case PROFESSOR -> { Teacher t = new Teacher(); t.setTeacherTitle(TeacherTitle.PROFESSOR); yield t; }
+            case PROFESSOR -> new Professor();
             case RESEARCH_STAFF -> new ResearchStaff();
         };
     }
@@ -32,7 +32,7 @@ public final class UserFactory {
             case STUDENT -> new Student(id, firstName, "", email, password, 1);
             case STUDENT_4TH_YEAR -> new Student4thYear(id, firstName, "", email, password);
             case TEACHER -> new Teacher(id, firstName, "", email, password, TeacherTitle.LECTOR);
-            case PROFESSOR -> new Teacher(id, firstName, "", email, password, TeacherTitle.PROFESSOR);
+            case PROFESSOR -> new Professor(id, firstName, "", email, password);
             case RESEARCH_STAFF -> new ResearchStaff(id, firstName, "", email, password);
         };
     }

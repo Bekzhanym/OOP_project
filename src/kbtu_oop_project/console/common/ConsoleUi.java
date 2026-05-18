@@ -108,19 +108,18 @@ public final class ConsoleUi {
         System.out.println("1 ── По дате публикации");
         System.out.println("2 ── По количеству цитирований");
         System.out.println("3 ── По объёму (количеству страниц)");
+        System.out.println("4 ── По длине названия статьи"); // Наш новый пункт!
         
         while (true) {
-            System.out.print("Ваш выбор (1/2/3): ");
+            System.out.print("Ваш выбор (1/2/3/4): ");
             String c = trim(in.nextLine());
-            return switch (c) {
-                case "1" -> ResearchPaperComparators.BY_DATE;
-                case "2" -> ResearchPaperComparators.BY_CITATIONS;
-                case "3" -> ResearchPaperComparators.BY_PAGES;
-                default -> {
-                    System.out.println("Ошибка: выберите пункт 1, 2 или 3.");
-                    yield null; 
-                }
-            };
+            switch (c) {
+                case "1" -> { return ResearchPaperComparators.BY_DATE; }
+                case "2" -> { return ResearchPaperComparators.BY_CITATIONS; }
+                case "3" -> { return ResearchPaperComparators.BY_PAGES; }
+                case "4" -> { return ResearchPaperComparators.BY_TITLE_LENGTH; } // Используем его!
+                default -> System.out.println("Ошибка: выберите пункт 1, 2, 3 или 4.");
+            }
         }
     }
 }

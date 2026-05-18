@@ -115,7 +115,8 @@ public final class StudentConsole {
         }
 
         try {
-            db.submitCourseRegistrationRequest(student, course);
+            kbtu_oop_project.domain.features.misc.RegistrationOffice.getInstance()
+                    .submitRegistrationRequest(student, course, db);
             ConsoleUi.printlnOk("Заявка успешно отправлена в Office of Registrar.");
         } catch (IllegalStateException | IllegalArgumentException ex) {
             ConsoleUi.printlnErr(ex.getMessage());
