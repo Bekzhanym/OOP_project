@@ -105,7 +105,7 @@ javadoc --enable-preview --source 17 -sourcepath src -d docs/html \
 
 ---
 
-## Запуск в VS Code / Cursor
+## Запуск в VS Code
 
 В `.vscode/settings.json` уже указано:
 
