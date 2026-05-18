@@ -13,7 +13,10 @@ import java.util.Scanner;
 public final class ConsoleApplication {
 
     private ConsoleApplication() {
-        throw new UnsupportedOperationException("Это утилитарный класс для запуска консольного приложения.");
+    }
+
+    public static void main(String[] args) {
+        run();
     }
 
     public static void run() {

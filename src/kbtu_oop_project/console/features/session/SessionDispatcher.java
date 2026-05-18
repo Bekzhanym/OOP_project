@@ -64,7 +64,6 @@ public final class SessionDispatcher {
     private static boolean dispatchSession(User user, UniversityDatabase db, Scanner in) {
         User coreUser = extractCoreUser(user);
 
-        
         if (coreUser instanceof Student student) {
             return StudentConsole.studentMenu(student, db, in);
         }

@@ -7,11 +7,17 @@ import kbtu_oop_project.domain.features.misc.PendingCourseRegistration;
 import kbtu_oop_project.domain.features.research.ResearchPaper;
 import kbtu_oop_project.domain.features.research.ResearchProject;
 import kbtu_oop_project.domain.features.research.Researcher;
+import kbtu_oop_project.domain.features.user.Admin;
 import kbtu_oop_project.domain.features.user.Employee;
+import kbtu_oop_project.domain.features.user.PendingUser;
 import kbtu_oop_project.domain.features.user.Student;
+import kbtu_oop_project.domain.features.user.UserRoleAssignment;
 import kbtu_oop_project.domain.features.user.Teacher;
 import kbtu_oop_project.domain.features.user.User;
+import kbtu_oop_project.domain.value.ManagerType;
+import kbtu_oop_project.domain.value.TeacherTitle;
 import kbtu_oop_project.domain.value.MessageKind;
+import kbtu_oop_project.domain.value.Role;
 
 import java.io.*;
 import java.nio.file.Files;
@@ -26,7 +32,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 public final class UniversityDatabase {
-    
+
     private static final Path DEFAULT_STORAGE = Paths.get("data", "university-state.ser");
     private static final Path TEMP_STORAGE = Paths.get("data", "university-state.tmp");
 
@@ -51,6 +57,7 @@ public final class UniversityDatabase {
         m.put("Mark", c + "Mark");
         m.put("Notification", n + "Notification");
         m.put("Observer", n + "Observer");
+        m.put("PendingUser", u + "PendingUser");
         m.put("Professor", u + "Professor");
         m.put("RecommendationLetter", u + "RecommendationLetter");
         m.put("ResearchPaper", r + "ResearchPaper");
@@ -71,12 +78,19 @@ public final class UniversityDatabase {
     private static volatile UniversityDatabase instance;
 
     private final List<User> users = new CopyOnWriteArrayList<>();
+
     private final List<Course> courses = new CopyOnWriteArrayList<>();
+
     private final List<String> logLines = new CopyOnWriteArrayList<>();
+
     private final List<Log> logs = new CopyOnWriteArrayList<>();
+
     private final List<PendingCourseRegistration> pendingCourseRegistrations = new CopyOnWriteArrayList<>();
+
     private final List<ResearchProject> researchProjects = new CopyOnWriteArrayList<>();
+
     private final List<EmployeeMessage> employeeMessages = new CopyOnWriteArrayList<>();
+
     private final List<String> newsItems = new CopyOnWriteArrayList<>();
 
     private UniversityDatabase() {
@@ -133,9 +147,9 @@ public final class UniversityDatabase {
             courses.addAll((List<Course>) ois.readObject());
             logLines.addAll((List<String>) ois.readObject());
             logs.addAll((List<Log>) ois.readObject());
-            
+
             readOptionalSnapshotTail(ois);
-            
+
             rebuildTeachingAssociations();
             rebuildEnrollmentAssociations();
         } catch (IOException | ClassNotFoundException e) {
@@ -188,6 +202,69 @@ public final class UniversityDatabase {
         return users.stream()
                 .filter(u -> u.getEmail() != null && needle.equals(u.getEmail().trim().toLowerCase(Locale.ROOT)))
                 .findFirst();
+    }
+
+    public boolean isEmailTaken(String email) {
+        return findByEmailIgnoreCase(email).isPresent();
+    }
+
+    public String allocateUserId(Role role) {
+        String prefix = switch (role) {
+            case STUDENT, STUDENT_4TH_YEAR -> "S";
+            case TEACHER, PROFESSOR -> "T";
+            case MANAGER -> "M";
+            case ADMIN -> "A";
+            case EMPLOYEE -> "E";
+            case RESEARCH_STAFF -> "R";
+        };
+        return allocateIdWithPrefix(prefix);
+    }
+
+    public String allocatePendingUserId() {
+        return allocateIdWithPrefix("U");
+    }
+
+    private String allocateIdWithPrefix(String prefix) {
+        for (int n = 1; n < 1000; n++) {
+            String candidate = prefix + String.format("%02d", n);
+            boolean taken = users.stream().anyMatch(u -> candidate.equalsIgnoreCase(u.getId()));
+            if (!taken) {
+                return candidate;
+            }
+        }
+        throw new IllegalStateException("Не удалось выделить свободный ID с префиксом " + prefix);
+    }
+
+    public List<PendingUser> findPendingUsers() {
+        return users.stream()
+                .filter(PendingUser.class::isInstance)
+                .map(u -> (PendingUser) u)
+                .toList();
+    }
+
+    public boolean assignUserRole(String email, Role role, int studentYear,
+                                  ManagerType managerType, TeacherTitle teacherTitle) {
+        Optional<User> opt = findByEmailIgnoreCase(email);
+        if (opt.isEmpty()) {
+            return false;
+        }
+        User current = opt.get();
+        if (current instanceof Admin) {
+            return false;
+        }
+        try {
+            User replacement = UserRoleAssignment.apply(current, role, studentYear, managerType, teacherTitle);
+            for (int i = 0; i < users.size(); i++) {
+                if (users.get(i) == current) {
+                    users.set(i, replacement);
+                    recordAudit("ROLE_ASSIGNED " + email.trim() + " -> " + role.name());
+                    return true;
+                }
+            }
+            return false;
+        } catch (RuntimeException ex) {
+            return false;
+        }
     }
 
     public Optional<Student> findStudentByStudentId(String studentId) {
@@ -440,7 +517,7 @@ public final class UniversityDatabase {
 
         Course victim = opt.get();
         pendingCourseRegistrations.removeIf(p -> emailsMatchIgnoreCase(p.getCourseCode(), victim.getCourseCode()));
-        
+
         for (Teacher t : victim.getInstructors()) {
             victim.removeInstructor(t);
         }

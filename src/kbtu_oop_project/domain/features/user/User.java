@@ -15,11 +15,17 @@ public abstract class User implements Observer, Serializable {
     private static final long serialVersionUID = 1L;
 
     private final String id;
+
     private String firstName;
+
     private String lastName;
+
     private String email;
+
     private String password;
+
     private Language currentLanguage;
+
     private final List<Notification> inbox = new ArrayList<>();
 
     protected User() {
@@ -32,10 +38,10 @@ public abstract class User implements Observer, Serializable {
             throw new IllegalArgumentException("ID пользователя не может быть пустым.");
         }
         this.id = id.trim();
-        
+
         this.firstName = Objects.requireNonNullElse(firstName, "Name").trim();
         this.lastName = Objects.requireNonNullElse(lastName, "Surname").trim();
-        
+
         this.email = validateAndNormalizeEmail(email);
         this.password = Objects.requireNonNull(password, "Пароль не может быть null.");
         this.currentLanguage = Language.ENG;
@@ -58,6 +64,10 @@ public abstract class User implements Observer, Serializable {
 
     public boolean authenticate(String passwordAttempt) {
         return passwordAttempt != null && passwordAttempt.equals(this.password);
+    }
+
+    String internalPassword() {
+        return password;
     }
 
     public void changePassword(String oldPassword, String newPassword) {
@@ -83,6 +93,7 @@ public abstract class User implements Observer, Serializable {
     }
 
     public abstract void login();
+
     public abstract void logout();
 
     private String validateAndNormalizeEmail(String inputEmail) {
@@ -101,7 +112,7 @@ public abstract class User implements Observer, Serializable {
     }
 
     public String getId() { return id; }
-    
+
     
     public String getFirstName() { return firstName; }
     public void setFirstName(String firstName) { 

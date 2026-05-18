@@ -31,7 +31,9 @@ public final class UserRoleFormatter {
         String prefix = u.getClass().getSimpleName().contains("Researcher") ? "[Исследователь] " : "";
 
         String role;
-        if (coreUser instanceof Admin) {
+        if (coreUser instanceof PendingUser) {
+            role = "Студент (1 курс, по умолчанию)";
+        } else if (coreUser instanceof Admin) {
             role = "Администратор";
         } else if (coreUser instanceof Manager) {
             role = "Менеджер Office of Registrar";

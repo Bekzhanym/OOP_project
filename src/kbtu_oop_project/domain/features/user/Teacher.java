@@ -24,9 +24,13 @@ public class Teacher extends Employee implements Researcher {
     private static final long serialVersionUID = 1L;
 
     private TeacherTitle teacherTitle;
+
     private String department;
+
     private ResearcherProfile researcherProfile;
+
     private List<Course> taughtCourses;
+
     private Map<String, Integer> receivedRatings;
 
     public Teacher() {
@@ -66,7 +70,7 @@ public class Teacher extends Employee implements Researcher {
 
     @Deprecated
     public void setHIndex(int hIndex) {
-        
+
         
     }
 
@@ -123,15 +127,16 @@ public class Teacher extends Employee implements Researcher {
         return Collections.unmodifiableMap(new HashMap<>(receivedRatingsBacking()));
     }
 
+    
     public void putMark(Student student, Course course, Mark mark) {
         Objects.requireNonNull(student, "Студент обязателен.");
         Objects.requireNonNull(course, "Курс обязателен.");
         Objects.requireNonNull(mark, "Оценка обязательна.");
-        
+
         if (!taughtCoursesBacking().contains(course)) {
             throw new IllegalStateException("Вы не являетесь назначенным преподавателем курса: " + course.getCourseName());
         }
-        
+
         student.getTranscript().addMark(course, mark);
         System.out.println(String.format("✅ Преподаватель %s выставил оценку для %s по курсу %s", 
                 this.getLastName(), student.getFullName(), course.getCourseCode()));
@@ -169,10 +174,10 @@ public class Teacher extends Employee implements Researcher {
 
     public void writeRecommendation(Student student, String customText) {
         Objects.requireNonNull(student, "Студент обязателен");
-        
+
         String finalSubstance = (customText != null && !customText.isBlank()) ? customText.trim() :
                 "Настоящим подтверждаю высокие академические и этические показатели студента " + student.getFullName() + ".";
-        
+
         RecommendationLetter letter = new RecommendationLetter(this, student.getEmail(), finalSubstance);
         System.out.println("📜 Рекомендательное письмо успешно подписано и отправлено студенту:\n" + letter);
     }

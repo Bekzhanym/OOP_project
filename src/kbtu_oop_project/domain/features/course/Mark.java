@@ -5,11 +5,13 @@ import java.io.Serializable;
 public class Mark implements Serializable {
 
     private static final long serialVersionUID = 1L;
-    
-    private double firstAttestation;  
-    private double secondAttestation; 
-    private double finalExam;         
-    
+
+    private double firstAttestation;
+
+    private double secondAttestation;
+
+    private double finalExam;
+
     public double getTotalScore() {
         return firstAttestation + secondAttestation + finalExam;
     }
@@ -20,11 +22,11 @@ public class Mark implements Serializable {
 
     public String getLetterGrade() {
         double termScore = firstAttestation + secondAttestation;
-        
+
         if (termScore < 30.0) {
             return "F";
         }
-        
+
         if (finalExam < 20.0) {
             return "FX";
         }
@@ -44,7 +46,7 @@ public class Mark implements Serializable {
         if (total >= 60) return "C-";
         if (total >= 55) return "D+";
         if (total >= 50) return "D";
-        
+
         return "F";
     }
 

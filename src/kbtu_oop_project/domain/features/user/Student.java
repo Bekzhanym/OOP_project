@@ -20,22 +20,31 @@ import java.util.Map;
 public class Student extends User implements Researcher {
 
     private static final long serialVersionUID = 1L;
+
     private static final int MAX_CREDITS_PER_TERM = 21;
+
     private static final int MAX_FAILED_ATTEMPTS = 3;
 
     private double gpa;
+
     private int yearOfStudy;
+
     private int totalCredits;
+
     private int failedAttempts;
+
     private int hIndex;
-    
+
     private final List<Course> enrolledCourses = new ArrayList<>();
+
     private final List<ResearchPaper> papers = new ArrayList<>();
+
     private final List<ResearchProject> researchProjects = new ArrayList<>();
+
     private final Transcript transcript = new Transcript();
-    
+
     private StartupProject startupProject;
-    
+
     private Map<String, Integer> teacherRatingsByEmail = new HashMap<>();
 
     public Student() {
@@ -71,6 +80,7 @@ public class Student extends User implements Researcher {
         System.out.println("👋 Студент " + getEmail() + " вышел из системы.");
     }
 
+    
     public void registerForCourse(Course course) {
         if (course == null) {
             throw new IllegalArgumentException("Дисциплина не может быть null.");
@@ -99,6 +109,7 @@ public class Student extends User implements Researcher {
         }
     }
 
+    
     public void viewTranscript() {
         if (!transcript.hasMarks()) {
             System.out.println("Академический транскрипт пуст. Оценки за текущий период отсутствуют.");
@@ -137,15 +148,14 @@ public class Student extends User implements Researcher {
         if (stars1to5 < 1 || stars1to5 > 5) {
             throw new IllegalArgumentException("Оценка должна быть строго от 1 до 5 звезд.");
         }
-        
+
         String teacherKey = teacher.getEmail().trim().toLowerCase(Locale.ROOT);
         teacherRatingsBacking().put(teacherKey, stars1to5);
-        
+
         teacher.addRating(this.getEmail(), stars1to5);
         System.out.println("✅ Ваша оценка (" + stars1to5 + "★) для " + teacher.getFullName() + " успешно сохранена.");
     }
 
-    
     @Override
     public int getHIndex() {
         return hIndex;
@@ -176,7 +186,7 @@ public class Student extends User implements Researcher {
         }
         List<ResearchPaper> copy = new ArrayList<>(papers);
         copy.sort(comparator);
-        
+
         System.out.println("\n--- НАУЧНЫЕ ПУБЛИКАЦИИ СТУДЕНТА ---");
         copy.forEach(paper -> System.out.println(paper.getDetails()));
     }
@@ -191,7 +201,7 @@ public class Student extends User implements Researcher {
         if (project == null) return;
         if (!researchProjects.contains(project)) {
             researchProjects.add(project);
-            
+
             if (!project.getParticipants().contains(this)) {
                 project.addParticipant(this);
             }
@@ -214,7 +224,7 @@ public class Student extends User implements Researcher {
     }
 
     public void setStudentId(String studentId) {
-        
+
     }
 
     public double getGpa() {
@@ -236,7 +246,7 @@ public class Student extends User implements Researcher {
     }
 
     public StartupProject getStartupProject() { return startupProject; }
-    
+
     public void setStartupProject(StartupProject project) {
         if (this.startupProject == project) return;
         StartupProject oldProject = this.startupProject;
