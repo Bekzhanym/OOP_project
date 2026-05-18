@@ -1,4 +1,4 @@
-# KBTU OOP Final Project — Dreav University
+# KBTU OOP Final Project — Dream University
 
 Консольный симулятор академической системы КБТУ: пользователи, курсы, регистрация, оценки, исследования, сообщения сотрудников.  
 Проект на **Java 17** без Maven/Gradle — исходники в `src/`, сборка через `javac`.
